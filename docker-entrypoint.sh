@@ -15,5 +15,8 @@ echo "→ PostgreSQL disponível."
 echo "→ Aplicando migrations..."
 node_modules/.bin/prisma migrate deploy
 
+echo "→ Rodando seed (upsert — seguro repetir)..."
+node seed.js || echo "⚠️  Seed falhou, continuando..."
+
 echo "→ Iniciando aplicação..."
 exec node server.js

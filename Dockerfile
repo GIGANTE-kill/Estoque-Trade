@@ -46,6 +46,8 @@ COPY --from=builder /app/node_modules/@prisma            ./node_modules/@prisma
 COPY --from=builder /app/prisma                          ./prisma
 COPY --from=builder /app/prisma.config.ts                ./prisma.config.ts
 COPY --from=builder /app/src/generated                   ./src/generated
+# Seed JS (cria usuários padrão no primeiro boot)
+COPY --from=builder /app/prisma/seed.js                  ./seed.js
 
 # Script de entrada: migrate + start
 COPY docker-entrypoint.sh /docker-entrypoint.sh
