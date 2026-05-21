@@ -21,7 +21,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: acao-trade-estoque:latest
     container_name: acao-trade-estoque
     restart: unless-stopped
     depends_on:
