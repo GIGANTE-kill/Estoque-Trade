@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, Clock, Loader2, RefreshCw,
-  Trash2, FileText, AlertCircle, LogOut,
+  Trash2, AlertCircle, LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
@@ -62,45 +62,6 @@ function SaidaCard({
     } finally {
       setDeleting(false);
     }
-  }
-
-  function handleGerarPDF() {
-    const html = `
-      <html><head><title>Termo de Saída</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 40px; color: #111; }
-        h1 { font-size: 18px; margin-bottom: 4px; }
-        .sub { font-size: 12px; color: #666; margin-bottom: 32px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
-        td, th { border: 1px solid #ddd; padding: 8px 12px; font-size: 13px; }
-        th { background: #f5f5f5; font-weight: 600; text-align: left; }
-        .linha { border-top: 1px solid #333; width: 260px; margin-top: 56px; padding-top: 6px; font-size: 12px; }
-      </style></head><body>
-      <h1>TERMO DE RESPONSABILIDADE DE SAÍDA</h1>
-      <div class="sub">CD São Roque / Promotoria — Ação Trade Estoque</div>
-      <table>
-        <tr><th>Campo</th><th>Valor</th></tr>
-        <tr><td>Material</td><td>${saida.material}</td></tr>
-        ${saida.fornecedor ? `<tr><td>Fornecedor</td><td>${saida.fornecedor}</td></tr>` : ""}
-        ${saida.nomeAcao ? `<tr><td>Ação</td><td>${saida.nomeAcao}</td></tr>` : ""}
-        <tr><td>Quantidade</td><td>${saida.quantity} un.</td></tr>
-        <tr><td>Solicitante</td><td>${saida.solicitante}</td></tr>
-        <tr><td>Justificativa</td><td>${saida.justificativa}</td></tr>
-        <tr><td>Data da Solicitação</td><td>${saida.createdAt}</td></tr>
-        <tr><td>Aprovado por</td><td>${saida.aprovador ?? "-"}</td></tr>
-        <tr><td>Aprovado em</td><td>${saida.aprovadoEm ?? "-"}</td></tr>
-        <tr><td>Nº Registro</td><td>${saida.id}</td></tr>
-      </table>
-      <p style="font-size:13px">
-        Declaro que recebi os materiais acima listados e me responsabilizo pela guarda,
-        uso adequado e devolução ou comprovação de utilização conforme as normas da empresa.
-      </p>
-      <div class="linha">${saida.solicitante}</div>
-      <div class="linha">Assinatura</div>
-      </body></html>
-    `;
-    const win = window.open("", "_blank");
-    if (win) { win.document.write(html); win.document.close(); win.print(); }
   }
 
   return (
@@ -208,20 +169,9 @@ function SaidaCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] text-slate-400 italic">
-            Aprovado por <span className="font-medium text-slate-500">{saida.aprovador ?? "Administrador"}</span>
-          </p>
-          <Button
-            onClick={handleGerarPDF}
-            variant="outline"
-            size="sm"
-            className="h-7 rounded-xl text-xs border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
-          >
-            <FileText className="h-3.5 w-3.5 text-blue-500" />
-            Termo PDF
-          </Button>
-        </div>
+        <p className="text-[10px] text-slate-400 italic">
+          Aprovado por <span className="font-medium text-slate-500">{saida.aprovador ?? "Administrador"}</span>
+        </p>
       </div>
     </div>
   );
