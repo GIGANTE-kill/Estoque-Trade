@@ -1,6 +1,7 @@
 "use strict";
 const crypto = require("crypto");
 const { PrismaClient } = require("../src/generated/prisma");
+const { PrismaPg } = require("@prisma/adapter-pg");
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -8,7 +9,8 @@ function hashPassword(password) {
   return { hash, salt };
 }
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Criando usuários iniciais...\n");
