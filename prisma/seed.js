@@ -21,7 +21,7 @@ const CATEGORIAS_PDV = [
   "Stopper de prateleira","Cartazete","Separador de compras","Porta-folheto",
   "Totem fotográfico","Totem interativo","Balcão promocional","Saia de gôndola",
   "Banner suspenso","Cubo de papelão","Tapete personalizado","Cavalete",
-  "Brinde","Display","Expositor","Amostra","Forração",
+  "Brinde","Display","Amostra","Forração",
 ];
 
 async function main() {
