@@ -1,4 +1,22 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: acao-trade-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: acaotrade
+      POSTGRES_USER: acaotrade
+      POSTGRES_PASSWORD: acaotrade123
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - servidores
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acaotrade -d acaotrade"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   acao-trade-estoque:
     build:
       context: .
@@ -6,13 +24,15 @@ services:
     image: acao-trade-estoque:latest
     container_name: acao-trade-estoque
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "8110:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=file:/data/prod.db
+      - DATABASE_URL=postgresql://acaotrade:acaotrade123@postgres:5432/acaotrade
     volumes:
-      - db_data:/data
       - uploads:/app/public/uploads
     networks:
       - servidores

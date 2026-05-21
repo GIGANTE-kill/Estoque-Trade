@@ -14,7 +14,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:/data/prod.db"
+# URL de placeholder apenas para o prisma generate (não se conecta ao DB no build)
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 
 RUN npx prisma generate
 RUN npm run build
@@ -25,7 +26,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:/data/prod.db"
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 

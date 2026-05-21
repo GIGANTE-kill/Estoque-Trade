@@ -1,5 +1,5 @@
 // ============================================================
-// AÇÃO TRADE ESTOQUE — Schema Prisma (SQLite)
+// AÇÃO TRADE ESTOQUE — Schema Prisma (PostgreSQL)
 // DBA: Modelos completos para gestão de materiais de trade
 // ============================================================
 
@@ -9,7 +9,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ─────────────────────────────────────────────
