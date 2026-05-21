@@ -1,0 +1,163 @@
+// ============================================================
+// AÇÃO TRADE ESTOQUE — Schema Prisma (SQLite)
+// DBA: Modelos completos para gestão de materiais de trade
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─────────────────────────────────────────────
+// USUÁRIOS DO SISTEMA
+// ─────────────────────────────────────────────
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  role          Role           @default(OPERADOR)
+  avatarUrl     String?
+  passwordHash  String?
+  passwordSalt  String?
+  movements     Movement[]
+  solicitacoes  Solicitacao[]  @relation("SolicitacaoUsuario")
+  aprovacoes    Solicitacao[]  @relation("SolicitacaoAprovador")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  ADMINISTRADOR
+  GESTOR
+  OPERADOR
+}
+
+// ─────────────────────────────────────────────
+// CATEGORIAS DE MATERIAIS
+// ─────────────────────────────────────────────
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  materials Material[]
+  createdAt DateTime   @default(now())
+
+  @@map("categories")
+}
+
+// ─────────────────────────────────────────────
+// MATERIAIS DE TRADE (ESTOQUE)
+// ─────────────────────────────────────────────
+model Material {
+  id                 String      @id @default(cuid())
+  name               String
+  sku                String?     @unique
+  categoryId         String
+  category           Category    @relation(fields: [categoryId], references: [id])
+  quantity           Int         @default(0)
+  unitCost           Float?      // Custo unitário (opcional)
+  entryDate          DateTime    @default(now())
+  status             MatStatus   @default(DISPONIVEL)
+  fornecedor         String?     // Fornecedor do material
+  nomeAcao           String?     // Nome da ação/campanha
+  periodoAcaoInicio  DateTime?   // Início do período da ação
+  periodoAcaoFim     DateTime?   // Fim do período da ação
+  photoUrl           String?     // Foto do produto para identificação visual
+  movements          Movement[]
+  solicitacoes       Solicitacao[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@map("materials")
+}
+
+enum MatStatus {
+  DISPONIVEL
+  RESERVADO
+  ESGOTADO
+}
+
+// ─────────────────────────────────────────────
+// MOVIMENTAÇÕES (ENTRADAS E SAÍDAS)
+// ─────────────────────────────────────────────
+model Movement {
+  id         String    @id @default(cuid())
+  type       MoveType
+  quantity   Int
+  materialId String
+  material   Material  @relation(fields: [materialId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  notes      String?
+  document   Document?
+  createdAt  DateTime  @default(now())
+
+  @@map("movements")
+}
+
+enum MoveType {
+  ENTRADA
+  SAIDA
+}
+
+// ─────────────────────────────────────────────
+// DOCUMENTOS DE SAÍDA (Comprovantes / Assinaturas)
+// ─────────────────────────────────────────────
+model Document {
+  id               String    @id @default(cuid())
+  movementId       String    @unique
+  movement         Movement  @relation(fields: [movementId], references: [id])
+  signedAt         DateTime?
+  signedBy         String?   // Nome de quem assinou
+  status           DocStatus @default(AGUARDANDO)
+  fileUrl          String?   // URL do PDF gerado
+  signedDocUrl     String?   // Foto/imagem do documento assinado (upload)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("documents")
+}
+
+enum DocStatus {
+  AGUARDANDO
+  ASSINADO
+  CANCELADO
+}
+
+// ─────────────────────────────────────────────
+// SOLICITAÇÕES DE SAÍDA
+// Qualquer usuário cria; somente ADMIN aprova.
+// Quando aprovada, gera um Movement do tipo SAIDA.
+// ─────────────────────────────────────────────
+model Solicitacao {
+  id              String            @id @default(cuid())
+  materialId      String
+  material        Material          @relation(fields: [materialId], references: [id])
+  solicitanteId   String
+  solicitante     User              @relation("SolicitacaoUsuario", fields: [solicitanteId], references: [id])
+  quantity        Int
+  justificativa   String
+  status          SolicitacaoStatus @default(PENDENTE)
+  aprovadorId     String?
+  aprovador       User?             @relation("SolicitacaoAprovador", fields: [aprovadorId], references: [id])
+  aprovadoEm      DateTime?
+  movementId      String?           // Movement criado ao aprovar
+  signedDocUrl    String?           // Foto do documento assinado pelo solicitante
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("solicitacoes")
+}
+
+enum SolicitacaoStatus {
+  PENDENTE
+  APROVADA
+  REJEITADA
+}

@@ -1,0 +1,26 @@
+services:
+  acao-trade-estoque:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: acao-trade-estoque:latest
+    container_name: acao-trade-estoque
+    restart: unless-stopped
+    ports:
+      - "8110:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/data/prod.db
+    volumes:
+      - db_data:/data
+      - uploads:/app/public/uploads
+    networks:
+      - servidores
+
+volumes:
+  db_data:
+  uploads:
+
+networks:
+  servidores:
+    external: true
