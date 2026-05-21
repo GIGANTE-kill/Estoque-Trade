@@ -19,8 +19,8 @@
  *    criação do material é abortada com mensagem de erro.
  */
 
-import { useState, useRef } from "react";
-import { X, Save, AlertCircle, ImagePlus, Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { X, Save, AlertCircle, ImagePlus, Loader2, ChevronDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadFile } from "@/lib/upload-helper";
 import Image from "next/image";
@@ -32,9 +32,13 @@ interface MaterialModalProps {
 }
 
 export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps) {
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryOpen, setCategoryOpen] = useState(false);
+
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
-  const [categoryName, setCategoryName] = useState("Display");
+  const [categoryName, setCategoryName] = useState("");
   const [quantity, setQuantity] = useState<number>(0);
   const [status, setStatus] = useState("DISPONIVEL");
   const [fornecedor, setFornecedor] = useState("");
@@ -50,6 +54,21 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/categories")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setCategories(data.map((c: any) => c.name));
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
+
+  const filteredCategories = categories.filter((c) =>
+    c.toLowerCase().includes(categorySearch.toLowerCase())
+  );
+
   if (!isOpen) return null;
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -62,7 +81,9 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
   function resetForm() {
     setName("");
     setSku("");
-    setCategoryName("Display");
+    setCategoryName("");
+    setCategorySearch("");
+    setCategoryOpen(false);
     setQuantity(0);
     setStatus("DISPONIVEL");
     setFornecedor("");
@@ -223,16 +244,50 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Categoria <span className="text-red-400">*</span>
             </label>
-            <select
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all"
-            >
-              <option value="Display">Display</option>
-              <option value="PDV">PDV</option>
-              <option value="Impresso">Impresso</option>
-              <option value="Iluminação">Iluminação</option>
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setCategoryOpen((v) => !v); setCategorySearch(""); }}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all flex items-center justify-between"
+              >
+                <span className={categoryName ? "text-slate-700" : "text-slate-400"}>
+                  {categoryName || "Selecione uma categoria..."}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              </button>
+              {categoryOpen && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  <div className="p-2 border-b border-slate-100">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar categoria..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        autoFocus
+                        className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-400"
+                      />
+                    </div>
+                  </div>
+                  <ul className="max-h-48 overflow-y-auto py-1">
+                    {filteredCategories.length === 0 ? (
+                      <li className="px-3 py-2 text-xs text-slate-400 text-center">Nenhuma categoria encontrada</li>
+                    ) : (
+                      filteredCategories.map((cat) => (
+                        <li
+                          key={cat}
+                          onClick={() => { setCategoryName(cat); setCategoryOpen(false); }}
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${cat === categoryName ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
+                        >
+                          {cat}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ── Quantidade & Status ────────────────────────── */}
