@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardList,
   LogOut,
+  Tag,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,9 @@ export function Sidebar() {
             { href: "/permissoes", label: "Permissões", icon: Shield, badge: null },
             { href: "/relatorios", label: "Relatórios", icon: BarChart3, badge: null },
             { href: "/saidas", label: "Histórico de Saídas", icon: ArrowUpCircle, badge: null },
+            ...(user?.role === "ADMINISTRADOR"
+              ? [{ href: "/categorias", label: "Categorias", icon: Tag, badge: null }]
+              : []),
           ],
         }]
       : []),
