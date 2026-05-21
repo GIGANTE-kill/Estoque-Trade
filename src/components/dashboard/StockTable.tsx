@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, SlidersHorizontal, Trash2, Loader2, AlertCircle, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { mockMaterials } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
@@ -174,9 +173,7 @@ export function StockTable({ refreshTrigger = 0 }: { refreshTrigger?: number }) 
       .finally(() => setLoading(false));
   }, [refreshTrigger, refresh]);
 
-  const source = materials.length > 0 ? materials : mockMaterials;
-
-  const filteredMaterials = source.filter((m) => {
+  const filteredMaterials = materials.filter((m) => {
     const term = searchTerm.toLowerCase();
     return (
       m.name.toLowerCase().includes(term) ||
@@ -281,7 +278,7 @@ export function StockTable({ refreshTrigger = 0 }: { refreshTrigger?: number }) 
 
           <div className="flex items-center justify-between border-t border-slate-50 px-5 py-3">
             <p className="text-xs text-slate-400">
-              Mostrando {filteredMaterials.length} de {source.length} itens
+              Mostrando {filteredMaterials.length} de {materials.length} itens
             </p>
             <div className="flex items-center gap-1">
               <Button variant="outline" size="sm" disabled className="h-7 text-xs border-slate-200 rounded-lg">Anterior</Button>
