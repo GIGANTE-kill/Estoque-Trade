@@ -13,7 +13,7 @@ done
 echo "→ PostgreSQL disponível."
 
 echo "→ Aplicando migrations..."
-node_modules/.bin/prisma migrate deploy
+node node_modules/prisma/build/index.js migrate deploy
 
 echo "→ Rodando seed (upsert — seguro repetir)..."
 node seed.js || echo "⚠️  Seed falhou, continuando..."
