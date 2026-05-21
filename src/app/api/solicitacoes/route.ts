@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const solicitacoes = await prisma.solicitacao.findMany({
       where: status ? { status } : undefined,
       include: {
-        material: { select: { id: true, name: true, quantity: true, photoUrl: true } },
+        material: { select: { id: true, name: true, quantity: true, photoUrl: true, fornecedor: true, nomeAcao: true } },
         solicitante: { select: { id: true, name: true, role: true } },
         aprovador: { select: { id: true, name: true } },
       },
@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
       aprovadoEm: s.aprovadoEm
         ? new Date(s.aprovadoEm).toLocaleString("pt-BR")
         : null,
+      fornecedor: s.material.fornecedor ?? null,
+      nomeAcao: s.material.nomeAcao ?? null,
       signedDocUrl: s.signedDocUrl,
       notes: s.notes,
       createdAt: new Date(s.createdAt).toLocaleString("pt-BR"),
