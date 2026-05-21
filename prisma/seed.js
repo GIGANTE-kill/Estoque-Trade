@@ -1,6 +1,6 @@
 "use strict";
 const crypto = require("crypto");
-const { PrismaClient } = require("../src/generated/prisma");
+const { PrismaClient } = require("./src/generated/prisma");
 const { PrismaPg } = require("@prisma/adapter-pg");
 
 function hashPassword(password) {
