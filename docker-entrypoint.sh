@@ -12,6 +12,9 @@ until nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; do
 done
 echo "→ PostgreSQL disponível."
 
+echo "→ Resolvendo migrations com falha (se houver)..."
+node node_modules/prisma/build/index.js migrate resolve --rolled-back 20240101000000_init 2>/dev/null || true
+
 echo "→ Aplicando migrations..."
 node node_modules/prisma/build/index.js migrate deploy
 
