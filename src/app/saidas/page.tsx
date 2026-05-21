@@ -158,8 +158,9 @@ function SaidaCard({
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Documento Assinado</p>
           {saida.signedDocUrl ? (
-            <div className="relative h-28 rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50">
-              <Image src={saida.signedDocUrl} alt="Doc assinado" fill className="object-cover" />
+            <div className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={saida.signedDocUrl} alt="Doc assinado" className="w-full max-h-64 object-contain" />
               <div className="absolute bottom-1 right-1 bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" /> Assinado
               </div>
