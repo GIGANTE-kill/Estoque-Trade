@@ -10,6 +10,8 @@ services:
       POSTGRES_DB: acaotrade
     volumes:
       - db_data:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
     networks:
       - Servidores
     healthcheck:

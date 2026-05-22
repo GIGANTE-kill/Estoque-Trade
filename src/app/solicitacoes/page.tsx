@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { uploadFile } from "@/lib/upload-helper";
 import { useAuth } from "@/lib/AuthContext";
 import Image from "next/image";
+import { Lightbox } from "@/components/ui/Lightbox";
 
 interface Solicitacao {
   id: string;
@@ -62,6 +63,8 @@ function SolicitacaoCard({
   const [pendingDocUrl, setPendingDocUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUploadPendingDoc(e: React.ChangeEvent<HTMLInputElement>) {
@@ -166,7 +169,10 @@ function SolicitacaoCard({
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
+          <div 
+            onClick={() => sol.materialPhotoUrl && setPhotoLightboxOpen(true)}
+            className={cn("h-12 w-12 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center", sol.materialPhotoUrl && "cursor-pointer hover:opacity-80 transition-opacity")}
+          >
             {sol.materialPhotoUrl ? (
               <Image src={sol.materialPhotoUrl} alt={sol.material} width={48} height={48} className="object-cover w-full h-full" />
             ) : (
@@ -242,7 +248,7 @@ function SolicitacaoCard({
             </p>
             {pendingDocUrl ? (
               <div className="relative h-24 rounded-xl overflow-hidden border border-blue-100 bg-blue-50">
-                <Image src={pendingDocUrl} alt="Documento" fill className="object-cover" />
+                <Image src={pendingDocUrl} alt="Documento" fill className="object-cover cursor-pointer hover:opacity-90" onClick={() => setLightboxOpen(true)} />
                 <button
                   type="button"
                   onClick={() => setPendingDocUrl(null)}
@@ -334,7 +340,10 @@ function SolicitacaoCard({
             Documento Assinado
           </p>
           {sol.signedDocUrl ? (
-            <div className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50">
+            <div 
+              onClick={() => setLightboxOpen(true)}
+              className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50 cursor-pointer hover:opacity-90 transition-opacity"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={sol.signedDocUrl} alt="Doc assinado" className="w-full max-h-64 object-contain" />
               <div className="absolute bottom-1 right-1 bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -357,6 +366,17 @@ function SolicitacaoCard({
           Rejeitada por <strong className="ml-1">{sol.aprovador ?? "Administrador"}</strong>
         </div>
       )}
+
+      <Lightbox 
+        isOpen={lightboxOpen} 
+        imageUrl={sol.status === 'APROVADA' ? sol.signedDocUrl : pendingDocUrl} 
+        onClose={() => setLightboxOpen(false)} 
+      />
+      <Lightbox 
+        isOpen={photoLightboxOpen} 
+        imageUrl={sol.materialPhotoUrl} 
+        onClose={() => setPhotoLightboxOpen(false)} 
+      />
     </div>
   );
 }

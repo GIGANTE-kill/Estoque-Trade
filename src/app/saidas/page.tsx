@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 import { SaidaModal } from "@/components/dashboard/SaidaModal";
+import { Lightbox } from "@/components/ui/Lightbox";
 import Image from "next/image";
 
 interface Saida {
@@ -45,6 +46,8 @@ function SaidaCard({
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
 
   async function handleDelete() {
     if (!confirm("Excluir este registro de saída permanentemente?")) return;
@@ -69,7 +72,10 @@ function SaidaCard({
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-12 w-12 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center">
+          <div 
+            onClick={() => saida.materialPhotoUrl && setPhotoLightboxOpen(true)}
+            className={cn("h-12 w-12 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center", saida.materialPhotoUrl && "cursor-pointer hover:opacity-80 transition-opacity")}
+          >
             {saida.materialPhotoUrl ? (
               <Image src={saida.materialPhotoUrl} alt={saida.material} width={48} height={48} className="object-cover w-full h-full" />
             ) : (
@@ -158,7 +164,10 @@ function SaidaCard({
         <div>
           <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Documento Assinado</p>
           {saida.signedDocUrl ? (
-            <div className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50">
+            <div 
+              className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setLightboxOpen(true)}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={saida.signedDocUrl} alt="Doc assinado" className="w-full max-h-64 object-contain" />
               <div className="absolute bottom-1 right-1 bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -174,6 +183,17 @@ function SaidaCard({
           Aprovado por <span className="font-medium text-slate-500">{saida.aprovador ?? "Administrador"}</span>
         </p>
       </div>
+
+      <Lightbox 
+        isOpen={lightboxOpen} 
+        imageUrl={saida.signedDocUrl} 
+        onClose={() => setLightboxOpen(false)} 
+      />
+      <Lightbox 
+        isOpen={photoLightboxOpen} 
+        imageUrl={saida.materialPhotoUrl} 
+        onClose={() => setPhotoLightboxOpen(false)} 
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
+import { Lightbox } from "@/components/ui/Lightbox";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -58,10 +59,13 @@ function CategoryBadge({ category }: { category: string }) {
   );
 }
 
-function ProductThumb({ photoUrl, name }: { photoUrl?: string | null; name: string }) {
+function ProductThumb({ photoUrl, name, onClick }: { photoUrl?: string | null; name: string; onClick?: () => void }) {
   if (photoUrl) {
     return (
-      <div className="h-9 w-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+      <div 
+        className="h-9 w-9 shrink-0 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer hover:opacity-80 transition-opacity"
+        onClick={onClick}
+      >
         <Image src={photoUrl} alt={name} width={36} height={36} className="object-cover w-full h-full" />
       </div>
     );
@@ -163,14 +167,27 @@ export function StockTable({ refreshTrigger = 0 }: { refreshTrigger?: number }) 
   const [searchTerm, setSearchTerm] = useState("");
   const [deleting, setDeleting]     = useState<{ id: string; name: string } | null>(null);
   const [refresh, setRefresh]       = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch("/api/materials")
-      .then((res) => res.json())
-      .then((data) => { if (Array.isArray(data)) setMaterials(data); })
-      .catch((err) => console.error("Error fetching materials:", err))
-      .finally(() => setLoading(false));
+    let intervalId: any;
+    const fetchMaterials = async (isBackground = false) => {
+      if (!isBackground) setLoading(true);
+      try {
+        const res = await fetch("/api/materials");
+        const data = await res.json();
+        if (Array.isArray(data)) setMaterials(data);
+      } catch (err) {
+        console.error("Error fetching materials:", err);
+      } finally {
+        if (!isBackground) setLoading(false);
+      }
+    };
+
+    fetchMaterials();
+    intervalId = setInterval(() => fetchMaterials(true), 10000); // 10s polling
+
+    return () => clearInterval(intervalId);
   }, [refreshTrigger, refresh]);
 
   const filteredMaterials = materials.filter((m) => {
@@ -235,7 +252,13 @@ export function StockTable({ refreshTrigger = 0 }: { refreshTrigger?: number }) 
                     className="border-slate-50 hover:bg-slate-50/80 transition-colors cursor-default group"
                   >
                     <TableCell className="pl-5">
-                      <ProductThumb photoUrl={material.photoUrl} name={material.name} />
+                      <ProductThumb 
+                        photoUrl={material.photoUrl} 
+                        name={material.name} 
+                        onClick={() => {
+                          if (material.photoUrl) setLightboxImage(material.photoUrl);
+                        }} 
+                      />
                     </TableCell>
                     <TableCell>
                       <p className="text-sm font-medium text-slate-800">{material.name}</p>
@@ -292,6 +315,12 @@ export function StockTable({ refreshTrigger = 0 }: { refreshTrigger?: number }) 
         material={deleting}
         onClose={() => setDeleting(null)}
         onSuccess={() => setRefresh((p) => p + 1)}
+      />
+
+      <Lightbox 
+        isOpen={!!lightboxImage} 
+        imageUrl={lightboxImage} 
+        onClose={() => setLightboxImage(null)} 
       />
     </>
   );

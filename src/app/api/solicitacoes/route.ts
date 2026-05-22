@@ -12,6 +12,8 @@
  *   - A aprovação efetiva a saída do estoque (cria Movement + Document).
  */
 
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
