@@ -6,13 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, XCircle, FileText, Clock,
-  AlertCircle, Loader2, ImagePlus, RefreshCw, Trash2,
+  Loader2, ImagePlus, RefreshCw, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadFile } from "@/lib/upload-helper";
 import { useAuth } from "@/lib/AuthContext";
 import Image from "next/image";
 import { Lightbox } from "@/components/ui/Lightbox";
+import { toast } from "sonner";
+
+interface MarcadorObj {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface Solicitacao {
   id: string;
@@ -25,12 +32,30 @@ interface Solicitacao {
   quantity: number;
   justificativa: string;
   status: "PENDENTE" | "APROVADA" | "REJEITADA";
+  marcador: MarcadorObj | null;
   aprovador: string | null;
   aprovadoEm: string | null;
   signedDocUrl: string | null;
   notes: string | null;
   createdAt: string;
   createdAtRaw: string;
+}
+
+function MarcadorBadge({ marcador }: { marcador: MarcadorObj | null }) {
+  if (!marcador) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+      style={{
+        backgroundColor: marcador.color + "18",
+        color: marcador.color,
+        borderColor: marcador.color + "33",
+      }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: marcador.color }} />
+      {marcador.name}
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: Solicitacao["status"] }) {
@@ -44,6 +69,51 @@ function StatusBadge({ status }: { status: Solicitacao["status"] }) {
     <Badge className={cn("border text-[10px] font-semibold uppercase tracking-wide rounded-full", className)}>
       {label}
     </Badge>
+  );
+}
+
+function StatsPanel({ solicitacoes }: { solicitacoes: Solicitacao[] }) {
+  const approved = solicitacoes.filter((s) => s.status === "APROVADA");
+  if (approved.length === 0) return null;
+
+  const byMarcador: Record<string, { marcador: MarcadorObj; qty: number; units: number }> = {};
+  for (const s of approved) {
+    if (!s.marcador) continue;
+    const key = s.marcador.id;
+    if (!byMarcador[key]) byMarcador[key] = { marcador: s.marcador, qty: 0, units: 0 };
+    byMarcador[key].qty++;
+    byMarcador[key].units += s.quantity;
+  }
+
+  const items = Object.values(byMarcador).sort((a, b) => b.qty - a.qty);
+  if (items.length === 0) return null;
+  const total = approved.length;
+
+  return (
+    <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-5 space-y-4">
+      <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Motivos de Saída Aprovadas</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {items.map(({ marcador, qty, units }) => {
+          const pct = Math.round((qty / total) * 100);
+          return (
+            <div key={marcador.id} className="space-y-2">
+              <MarcadorBadge marcador={marcador} />
+              <div>
+                <span className="text-2xl font-bold text-slate-900">{qty}</span>
+                <span className="text-xs text-slate-400 ml-1">sol.</span>
+              </div>
+              <div className="text-[10px] text-slate-400">{units} unid. · {pct}%</div>
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: marcador.color }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -62,7 +132,6 @@ function SolicitacaoCard({
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [pendingDocUrl, setPendingDocUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,12 +140,12 @@ function SolicitacaoCard({
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingDoc(true);
-    setError("");
     try {
       const url = await uploadFile(file, "docassinado");
       setPendingDocUrl(url);
+      toast.success("Documento carregado com sucesso.");
     } catch (err: any) {
-      setError(err.message || "Falha ao fazer upload do documento.");
+      toast.error(err.message || "Falha ao fazer upload do documento.");
     } finally {
       setUploadingDoc(false);
     }
@@ -84,11 +153,10 @@ function SolicitacaoCard({
 
   async function handleAction(action: "APROVAR" | "REJEITAR") {
     if (action === "APROVAR" && !pendingDocUrl) {
-      setError("Insira o documento assinado antes de aprovar.");
+      toast.warning("Insira o documento assinado antes de aprovar.");
       return;
     }
     setLoadingAction(action);
-    setError("");
     try {
       const res = await fetch(`/api/solicitacoes/${sol.id}`, {
         method: "PATCH",
@@ -103,30 +171,41 @@ function SolicitacaoCard({
         const err = await res.json();
         throw new Error(err.error || `Erro ao ${action.toLowerCase()} solicitação.`);
       }
+      toast.success(action === "APROVAR" ? "Solicitação aprovada!" : "Solicitação rejeitada.");
       onRefresh();
     } catch (err: any) {
-      setError(err.message);
+      toast.error(err.message);
     } finally {
       setLoadingAction(null);
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Excluir esta solicitação permanentemente?")) return;
-    setDeleting(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/solicitacoes/${sol.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Erro ao excluir solicitação.");
-      }
-      onRefresh();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setDeleting(false);
-    }
+  function handleDelete() {
+    const wasApproved = sol.status === "APROVADA";
+    toast(`Cancelar esta solicitação${wasApproved ? " e estornar o estoque" : ""}?`, {
+      action: {
+        label: "Confirmar",
+        onClick: async () => {
+          setDeleting(true);
+          try {
+            const res = await fetch(`/api/solicitacoes/${sol.id}`, { method: "DELETE" });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || "Erro ao excluir solicitação.");
+            }
+            toast.success(
+              wasApproved ? "Solicitação cancelada e estoque estornado." : "Solicitação excluída."
+            );
+            onRefresh();
+          } catch (err: any) {
+            toast.error(err.message);
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+      cancel: { label: "Não", onClick: () => {} },
+    });
   }
 
   function handleGerarPDF() {
@@ -169,7 +248,7 @@ function SolicitacaoCard({
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div 
+          <div
             onClick={() => sol.materialPhotoUrl && setPhotoLightboxOpen(true)}
             className={cn("h-12 w-12 shrink-0 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex items-center justify-center", sol.materialPhotoUrl && "cursor-pointer hover:opacity-80 transition-opacity")}
           >
@@ -194,7 +273,7 @@ function SolicitacaoCard({
             <button
               onClick={handleDelete}
               disabled={deleting}
-              title="Excluir solicitação (somente admin)"
+              title="Cancelar solicitação"
               className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -217,6 +296,14 @@ function SolicitacaoCard({
         </div>
       </div>
 
+      {/* Marcador */}
+      {sol.marcador && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Motivo:</span>
+          <MarcadorBadge marcador={sol.marcador} />
+        </div>
+      )}
+
       {/* Justificativa */}
       <div className="bg-slate-50 rounded-xl p-3">
         <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Justificativa</p>
@@ -232,16 +319,9 @@ function SolicitacaoCard({
         )}
       </div>
 
-      {error && (
-        <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs flex items-center gap-2">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {error}
-        </div>
-      )}
-
       {/* ── PENDENTE: upload do doc + ações ── */}
       {sol.status === "PENDENTE" && (
         <div className="space-y-3 pt-1 border-t border-slate-100">
-          {/* Upload do documento assinado */}
           <div>
             <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
               Documento Assinado <span className="text-red-400">*</span>
@@ -285,7 +365,6 @@ function SolicitacaoCard({
             )}
           </div>
 
-          {/* Botões de ação */}
           <div className="flex items-center gap-2">
             <Button
               onClick={handleGerarPDF}
@@ -340,7 +419,7 @@ function SolicitacaoCard({
             Documento Assinado
           </p>
           {sol.signedDocUrl ? (
-            <div 
+            <div
               onClick={() => setLightboxOpen(true)}
               className="relative rounded-xl overflow-hidden border border-emerald-100 bg-emerald-50 cursor-pointer hover:opacity-90 transition-opacity"
             >
@@ -367,15 +446,15 @@ function SolicitacaoCard({
         </div>
       )}
 
-      <Lightbox 
-        isOpen={lightboxOpen} 
-        imageUrl={sol.status === 'APROVADA' ? sol.signedDocUrl : pendingDocUrl} 
-        onClose={() => setLightboxOpen(false)} 
+      <Lightbox
+        isOpen={lightboxOpen}
+        imageUrl={sol.status === "APROVADA" ? sol.signedDocUrl : pendingDocUrl}
+        onClose={() => setLightboxOpen(false)}
       />
-      <Lightbox 
-        isOpen={photoLightboxOpen} 
-        imageUrl={sol.materialPhotoUrl} 
-        onClose={() => setPhotoLightboxOpen(false)} 
+      <Lightbox
+        isOpen={photoLightboxOpen}
+        imageUrl={sol.materialPhotoUrl}
+        onClose={() => setPhotoLightboxOpen(false)}
       />
     </div>
   );
@@ -389,12 +468,15 @@ export default function SolicitacoesPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     const url = filter === "TODAS" ? "/api/solicitacoes" : `/api/solicitacoes?status=${filter}`;
-    fetch(url)
+    fetch(url, { cache: "no-store" })
       .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setSolicitacoes(data); })
-      .finally(() => setLoading(false));
+      .then((data) => { if (!cancelled && Array.isArray(data)) setSolicitacoes(data); })
+      .catch(() => { if (!cancelled) setSolicitacoes([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [filter, refreshKey]);
 
   const pendingCount = solicitacoes.filter((s) => s.status === "PENDENTE").length;
@@ -430,6 +512,10 @@ export default function SolicitacoesPage() {
         </header>
 
         <div className="flex-1 p-6 space-y-5">
+          {(filter === "TODAS" || filter === "APROVADA") && (
+            <StatsPanel solicitacoes={solicitacoes} />
+          )}
+
           <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-xl p-1 shadow-sm w-fit">
             {tabs.map(({ key, label }) => (
               <button

@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Pencil, Trash2, Loader2, AlertCircle, CheckCircle2,
-  X, ImagePlus, Tag, Package,
+  X, ImagePlus, Tag, Package, ChevronRight, Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
+import Image from "next/image";
 
 interface Category {
   id: string;
@@ -17,6 +18,155 @@ interface Category {
   imageUrl: string | null;
   createdAt: string;
   _count: { materials: number };
+}
+
+interface Material {
+  id: string;
+  name: string;
+  sku: string;
+  photoUrl: string | null;
+  quantity: number;
+  status: string;
+  fornecedor: string | null;
+}
+
+// ─── Modal de produtos da categoria ───────────────────────────────────────────
+function CategoryProductsModal({
+  category,
+  onClose,
+}: {
+  category: Category | null;
+  onClose: () => void;
+}) {
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!category) return;
+    setLoading(true);
+    setSearch("");
+    fetch(`/api/materials?categoryId=${category.id}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => setMaterials(Array.isArray(data) ? data : []))
+      .catch(() => setMaterials([]))
+      .finally(() => setLoading(false));
+  }, [category]);
+
+  if (!category) return null;
+
+  const filtered = materials.filter((m) =>
+    m.name.toLowerCase().includes(search.toLowerCase()) ||
+    (m.sku && m.sku.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
+      <div className="w-full sm:max-w-2xl bg-white sm:rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+          {category.imageUrl ? (
+            <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-slate-200">
+              <img src={category.imageUrl} alt={category.name} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+              <Tag className="h-5 w-5 text-blue-500" />
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-bold text-slate-900 truncate">{category.name}</h2>
+            <p className="text-xs text-slate-400">{category._count.materials} {category._count.materials === 1 ? "material" : "materiais"}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 py-3 border-b border-slate-50">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar material..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 pl-9 pr-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-blue-300 focus:outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-7 w-7 animate-spin text-blue-400" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+              <Package className="h-10 w-10 mb-3 text-slate-200" />
+              <p className="text-sm font-medium">
+                {search ? "Nenhum material encontrado" : "Nenhum material nesta categoria"}
+              </p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {filtered.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                  {m.photoUrl ? (
+                    <div className="h-11 w-11 shrink-0 rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
+                      <img src={m.photoUrl} alt={m.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-11 w-11 shrink-0 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                      <span className="text-xs font-bold text-slate-400">{m.name.substring(0, 2).toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{m.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {m.sku && m.sku !== "-" && (
+                        <span className="text-[10px] font-mono text-slate-400">{m.sku}</span>
+                      )}
+                      {m.fornecedor && (
+                        <span className="text-[10px] text-slate-400">{m.fornecedor}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={cn(
+                      "text-sm font-bold",
+                      m.quantity === 0 ? "text-red-500" : "text-slate-700"
+                    )}>
+                      {m.quantity} <span className="text-xs font-normal text-slate-400">un</span>
+                    </span>
+                    <span className={cn(
+                      "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                      m.status === "DISPONIVEL" ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        : m.status === "RESERVADO" ? "bg-amber-50 text-amber-700 border-amber-100"
+                        : "bg-red-50 text-red-600 border-red-100"
+                    )}>
+                      {m.status === "DISPONIVEL" ? "Disponível" : m.status === "RESERVADO" ? "Reservado" : "Esgotado"}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Modal de criação/edição ───────────────────────────────────────────────
@@ -205,15 +355,20 @@ function CategoryCard({
   category,
   onEdit,
   onDelete,
+  onView,
   isAdmin,
 }: {
   category: Category;
   onEdit: (c: Category) => void;
   onDelete: (c: Category) => void;
+  onView: (c: Category) => void;
   isAdmin: boolean;
 }) {
   return (
-    <div className="group relative bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden hover:shadow-md hover:border-blue-100 transition-all">
+    <div
+      className="group relative bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden hover:shadow-md hover:border-blue-100 transition-all cursor-pointer"
+      onClick={() => onView(category)}
+    >
       {/* Imagem */}
       <div className="relative h-40 bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center overflow-hidden">
         {category.imageUrl ? (
@@ -227,17 +382,27 @@ function CategoryCard({
             <Package className="h-12 w-12" />
           </div>
         )}
-        {/* Overlay com ações */}
+        {/* Overlay hint */}
+        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/5 flex items-center justify-center transition-colors">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-blue-700 shadow">
+            <Search className="h-3.5 w-3.5" />
+            Ver produtos
+          </div>
+        </div>
+        {/* Overlay com ações admin */}
         {isAdmin && (
-          <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div
+            className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => onEdit(category)}
+              onClick={(e) => { e.stopPropagation(); onEdit(category); }}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md text-slate-600 hover:text-blue-600 transition-colors"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => onDelete(category)}
+              onClick={(e) => { e.stopPropagation(); onDelete(category); }}
               disabled={category._count.materials > 0}
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-md transition-colors",
@@ -256,14 +421,17 @@ function CategoryCard({
       {/* Info */}
       <div className="px-4 py-3 flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-slate-800 truncate">{category.name}</p>
-        <Badge className={cn(
-          "shrink-0 border text-[10px] font-semibold rounded-full",
-          category._count.materials > 0
-            ? "bg-blue-50 text-blue-700 border-blue-100"
-            : "bg-slate-50 text-slate-500 border-slate-200"
-        )}>
-          {category._count.materials} {category._count.materials === 1 ? "item" : "itens"}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge className={cn(
+            "shrink-0 border text-[10px] font-semibold rounded-full",
+            category._count.materials > 0
+              ? "bg-blue-50 text-blue-700 border-blue-100"
+              : "bg-slate-50 text-slate-500 border-slate-200"
+          )}>
+            {category._count.materials} {category._count.materials === 1 ? "item" : "itens"}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-blue-400 transition-colors" />
+        </div>
       </div>
     </div>
   );
@@ -348,22 +516,24 @@ export function CategoriasClient({ initialCategories = [] }: { initialCategories
   const isAdmin = user?.role === "ADMINISTRADOR";
 
   const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [loading, setLoading] = useState(initialCategories.length === 0);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
+  const [viewing, setViewing] = useState<Category | null>(null);
   const [search, setSearch] = useState("");
 
   function load() {
     setLoading(true);
-    fetch("/api/categories")
+    fetch("/api/categories", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
-    if (initialCategories.length === 0) load();
+    load();
   }, []);
 
   const filtered = categories.filter((c) =>
@@ -433,6 +603,7 @@ export function CategoriasClient({ initialCategories = [] }: { initialCategories
                 isAdmin={isAdmin}
                 onEdit={(c) => { setEditing(c); setModalOpen(true); }}
                 onDelete={(c) => setDeleting(c)}
+                onView={(c) => setViewing(c)}
               />
             ))}
           </div>
@@ -449,6 +620,10 @@ export function CategoriasClient({ initialCategories = [] }: { initialCategories
         category={deleting}
         onClose={() => setDeleting(null)}
         onSuccess={load}
+      />
+      <CategoryProductsModal
+        category={viewing}
+        onClose={() => setViewing(null)}
       />
     </AppShell>
   );

@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
         material: { select: { id: true, name: true, quantity: true, photoUrl: true, fornecedor: true, nomeAcao: true } },
         solicitante: { select: { id: true, name: true, role: true } },
         aprovador: { select: { id: true, name: true } },
+        marcador: { select: { id: true, name: true, color: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
       quantity: s.quantity,
       justificativa: s.justificativa,
       status: s.status,
+      marcador: s.marcador ?? null,
       aprovador: s.aprovador?.name ?? null,
       aprovadoEm: s.aprovadoEm
         ? new Date(s.aprovadoEm).toLocaleString("pt-BR")
@@ -65,11 +67,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { materialId, solicitanteId, quantity, justificativa, notes } = body;
+    const { materialId, solicitanteId, quantity, justificativa, notes, marcadorId } = body;
 
-    if (!materialId || !solicitanteId || !quantity || !justificativa) {
+    if (!materialId || !solicitanteId || !quantity || !justificativa || !marcadorId) {
       return NextResponse.json(
-        { error: "materialId, solicitanteId, quantity e justificativa são obrigatórios." },
+        { error: "materialId, solicitanteId, quantity, justificativa e marcadorId são obrigatórios." },
         { status: 400 }
       );
     }
@@ -97,6 +99,7 @@ export async function POST(request: NextRequest) {
         solicitanteId,
         quantity: qty,
         justificativa,
+        marcadorId: marcadorId || null,
         notes: notes || null,
         status: "PENDENTE",
       },

@@ -1,15 +1,86 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, AlertCircle, Send, CheckCircle2, Loader2, Search, Plus, Trash2 } from "lucide-react";
+import { X, AlertCircle, Send, CheckCircle2, Loader2, Search, Plus, Trash2, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
+import { toast } from "sonner";
+
+interface MarcadorOption {
+  id: string;
+  name: string;
+  color: string;
+}
 
 interface SolicitacaoModalProps {
   isOpen: boolean;
   onClose: () => void;
   preselectedMaterial?: { id: string; name: string; quantity: number };
   onSuccess?: () => void;
+}
+
+function NewMarcadorForm({ onCreated }: { onCreated: (m: MarcadorOption) => void }) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState("#6366f1");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/marcadores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), color }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Erro ao criar marcador.");
+      }
+      const created: MarcadorOption = await res.json();
+      toast.success(`Marcador "${created.name}" criado!`);
+      onCreated(created);
+      setName("");
+      setColor("#6366f1");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="p-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 space-y-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Novo Marcador</p>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nome do marcador..."
+          className="flex-1 h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 outline-none focus:border-blue-500 transition-all"
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+        />
+        <div className="relative shrink-0">
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="h-9 w-9 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+            title="Escolher cor"
+          />
+        </div>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!name.trim() || saving}
+          className="h-9 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs"
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function SolicitacaoModal({
@@ -21,8 +92,9 @@ export function SolicitacaoModal({
   const { user, loading: authLoading } = useAuth();
   const [materials, setMaterials] = useState<any[]>([]);
   const [loadingMaterials, setLoadingMaterials] = useState(true);
+  const [marcadores, setMarcadores] = useState<MarcadorOption[]>([]);
+  const [showNewMarcador, setShowNewMarcador] = useState(false);
 
-  // busca de material
   const [search, setSearch] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedMat, setSelectedMat] = useState<any | null>(null);
@@ -31,6 +103,7 @@ export function SolicitacaoModal({
   const [currentQuantity, setCurrentQuantity] = useState<number>(1);
   const [items, setItems] = useState<{ material: any; quantity: number }[]>([]);
   const [justificativa, setJustificativa] = useState("");
+  const [marcadorId, setMarcadorId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -38,23 +111,24 @@ export function SolicitacaoModal({
   useEffect(() => {
     if (!isOpen) return;
     setLoadingMaterials(true);
-    fetch("/api/materials")
-      .then((r) => r.json())
-      .then((data: any[]) => {
-        if (Array.isArray(data)) {
-          setMaterials(data);
-          if (preselectedMaterial) {
-            const mat = data.find((m) => m.id === preselectedMaterial.id);
-            if (mat) {
-              setItems([{ material: mat, quantity: 1 }]);
-            }
-          }
+    Promise.all([
+      fetch("/api/materials").then((r) => r.json()),
+      fetch("/api/marcadores").then((r) => r.json()),
+    ]).then(([mats, marks]) => {
+      if (Array.isArray(mats)) {
+        setMaterials(mats);
+        if (preselectedMaterial) {
+          const mat = mats.find((m: any) => m.id === preselectedMaterial.id);
+          if (mat) setItems([{ material: mat, quantity: 1 }]);
         }
-      })
-      .finally(() => setLoadingMaterials(false));
+      }
+      if (Array.isArray(marks)) {
+        setMarcadores(marks);
+        if (marks.length > 0 && !marcadorId) setMarcadorId(marks[0].id);
+      }
+    }).finally(() => setLoadingMaterials(false));
   }, [isOpen, preselectedMaterial]);
 
-  // fecha dropdown ao clicar fora
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -73,9 +147,11 @@ export function SolicitacaoModal({
     setCurrentQuantity(1);
     setItems([]);
     setJustificativa("");
+    setMarcadorId(marcadores[0]?.id ?? "");
     setError("");
     setDone(false);
     setDropdownOpen(false);
+    setShowNewMarcador(false);
   }
 
   const filteredMaterials = materials.filter((m) =>
@@ -90,25 +166,19 @@ export function SolicitacaoModal({
 
   function handleAddItem() {
     if (!selectedMat) return;
-    if (currentQuantity <= 0) {
-      setError("Quantidade inválida.");
-      return;
-    }
+    if (currentQuantity <= 0) { setError("Quantidade inválida."); return; }
     const exists = items.find(i => i.material.id === selectedMat.id);
     if (exists) {
       if (exists.quantity + currentQuantity > selectedMat.quantity) {
-        setError("Quantidade excede o estoque disponível.");
-        return;
+        setError("Quantidade excede o estoque disponível."); return;
       }
       setItems(items.map(i => i.material.id === selectedMat.id ? { ...i, quantity: i.quantity + currentQuantity } : i));
     } else {
       if (currentQuantity > selectedMat.quantity) {
-        setError("Quantidade excede o estoque disponível.");
-        return;
+        setError("Quantidade excede o estoque disponível."); return;
       }
       setItems([...items, { material: selectedMat, quantity: currentQuantity }]);
     }
-    
     setSelectedMat(null);
     setSearch("");
     setCurrentQuantity(1);
@@ -121,18 +191,22 @@ export function SolicitacaoModal({
 
   function handleQuantityChange(materialId: string, qty: number) {
     if (qty <= 0) return;
-    setItems(items.map(i => {
-      if (i.material.id === materialId) {
-        return { ...i, quantity: Math.min(qty, i.material.quantity) };
-      }
-      return i;
-    }));
+    setItems(items.map(i =>
+      i.material.id === materialId ? { ...i, quantity: Math.min(qty, i.material.quantity) } : i
+    ));
+  }
+
+  function handleMarcadorCreated(m: MarcadorOption) {
+    setMarcadores((prev) => [...prev, m]);
+    setMarcadorId(m.id);
+    setShowNewMarcador(false);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) { setError("Adicione ao menos um material."); return; }
     if (!justificativa.trim()) { setError("Justificativa é obrigatória."); return; }
+    if (!marcadorId) { setError("Selecione um marcador."); return; }
     if (!user) { setError("Sessão expirada. Faça login novamente."); return; }
 
     setSubmitting(true);
@@ -148,9 +222,9 @@ export function SolicitacaoModal({
             solicitanteId: user.id,
             quantity: item.quantity,
             justificativa,
+            marcadorId,
           }),
         });
-
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.error || `Erro ao criar solicitação para ${item.material.name}.`);
@@ -209,10 +283,9 @@ export function SolicitacaoModal({
             </Button>
           </div>
         ) : (
-          /* ── FORMULÁRIO ── */
           <form onSubmit={handleSubmit} className="flex flex-col overflow-hidden h-full">
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
-              
+
               {/* Solicitante */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -376,6 +449,61 @@ export function SolicitacaoModal({
                   className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all resize-none"
                   required
                 />
+              </div>
+
+              {/* Marcador */}
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Marcador <span className="text-red-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewMarcador((v) => !v)}
+                    className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                  >
+                    <Tag className="h-3 w-3" />
+                    {showNewMarcador ? "Cancelar" : "Novo marcador"}
+                  </button>
+                </div>
+
+                {showNewMarcador && (
+                  <NewMarcadorForm onCreated={handleMarcadorCreated} />
+                )}
+
+                {loadingMaterials ? (
+                  <div className="h-10 bg-slate-50 border border-slate-200 rounded-xl animate-pulse" />
+                ) : marcadores.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-3">Nenhum marcador cadastrado. Crie um acima.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-200 bg-slate-50 max-h-40 overflow-y-auto">
+                    {marcadores.map((m) => (
+                      <label key={m.id} className="flex items-center gap-2.5 cursor-pointer group py-0.5">
+                        <input
+                          type="radio"
+                          name="marcador"
+                          value={m.id}
+                          checked={marcadorId === m.id}
+                          onChange={() => setMarcadorId(m.id)}
+                          className="sr-only"
+                        />
+                        <span
+                          className={`h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${marcadorId === m.id ? "border-transparent" : "border-slate-300 bg-white"}`}
+                          style={marcadorId === m.id ? { backgroundColor: m.color, borderColor: m.color } : {}}
+                        >
+                          {marcadorId === m.id && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-white block" />
+                          )}
+                        </span>
+                        <span
+                          className="h-2.5 w-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: m.color }}
+                        />
+                        <span className="text-xs text-slate-700 group-hover:text-slate-900 transition-colors">{m.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Info RBAC */}

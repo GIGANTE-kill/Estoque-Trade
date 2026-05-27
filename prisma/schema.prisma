@@ -132,6 +132,19 @@ enum DocStatus {
 }
 
 // ─────────────────────────────────────────────
+// MARCADORES DE SOLICITAÇÃO (dinâmicos, com cor)
+// ─────────────────────────────────────────────
+model Marcador {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  color        String        @default("#6366f1")
+  solicitacoes Solicitacao[]
+  createdAt    DateTime      @default(now())
+
+  @@map("marcadores")
+}
+
+// ─────────────────────────────────────────────
 // SOLICITAÇÕES DE SAÍDA
 // Qualquer usuário cria; somente ADMIN aprova.
 // Quando aprovada, gera um Movement do tipo SAIDA.
@@ -148,9 +161,11 @@ model Solicitacao {
   aprovadorId     String?
   aprovador       User?             @relation("SolicitacaoAprovador", fields: [aprovadorId], references: [id])
   aprovadoEm      DateTime?
-  movementId      String?           // Movement criado ao aprovar
-  signedDocUrl    String?           // Foto do documento assinado pelo solicitante
+  movementId      String?
+  signedDocUrl    String?
   notes           String?
+  marcadorId      String?
+  marcador        Marcador?         @relation(fields: [marcadorId], references: [id])
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 

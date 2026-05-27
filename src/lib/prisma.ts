@@ -2,17 +2,54 @@ import { PrismaClient } from "@/generated/prisma";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-function makePrisma() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-  const adapter = new PrismaPg(pool);
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+  pgPool: Pool | undefined;
+};
+
+function createPool() {
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL!,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+    keepAlive: true,
+  });
+  pool.on("error", (err) => {
+    console.error("[Postgres Pool] Erro — recriando pool e cliente Prisma...", err.message);
+    globalForPrisma.pgPool = undefined;
+    globalForPrisma.prisma = undefined;
+  });
+  return pool;
+}
+
+function makePrisma(): PrismaClient {
+  if (!globalForPrisma.pgPool) {
+    globalForPrisma.pgPool = createPool();
+  }
+  const adapter = new PrismaPg(globalForPrisma.pgPool);
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 }
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
+function getLiveClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = makePrisma();
+  }
+  return globalForPrisma.prisma;
+}
 
-export const prisma = globalForPrisma.prisma ?? makePrisma();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Proxy: cada acesso a `prisma.xyz` busca o cliente vivo no momento da chamada,
+// garantindo que erros de pool que resetam o singleton sejam transparentes.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop: string | symbol) {
+    const client = getLiveClient();
+    const value = (client as any)[prop];
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+    return value;
+  },
+});

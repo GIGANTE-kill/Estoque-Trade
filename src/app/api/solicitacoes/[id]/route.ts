@@ -163,12 +163,36 @@ export async function DELETE(
       return NextResponse.json({ error: "Apenas ADMINISTRADOR pode excluir solicitações." }, { status: 403 });
     }
 
-    const sol = await prisma.solicitacao.findUnique({ where: { id } });
+    const sol = await prisma.solicitacao.findUnique({
+      where: { id },
+      include: { material: true },
+    });
     if (!sol) {
       return NextResponse.json({ error: "Solicitação não encontrada." }, { status: 404 });
     }
 
-    await prisma.solicitacao.delete({ where: { id } });
+    // Se foi aprovada e gerou movement, estorna o estoque antes de deletar
+    if (sol.status === "APROVADA" && sol.movementId) {
+      await prisma.$transaction(async (tx) => {
+        // Restaura estoque
+        await tx.material.update({
+          where: { id: sol.materialId },
+          data: {
+            quantity: { increment: sol.quantity },
+            status: "DISPONIVEL",
+          },
+        });
+        // Remove document vinculado ao movement (cascata manual)
+        await tx.document.deleteMany({ where: { movementId: sol.movementId! } });
+        // Remove movement
+        await tx.movement.delete({ where: { id: sol.movementId! } });
+        // Remove solicitacao
+        await tx.solicitacao.delete({ where: { id } });
+      });
+    } else {
+      await prisma.solicitacao.delete({ where: { id } });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("Solicitacoes DELETE error:", error);

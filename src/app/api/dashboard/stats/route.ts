@@ -1,57 +1,42 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    // 1. Total items in stock (sum of quantity of all materials)
-    const materials = await prisma.material.findMany();
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Todas as queries em paralelo
+    const [materials, monthlyMovements, pendingSignatures, recentMovements] = await Promise.all([
+      prisma.material.findMany({ select: { quantity: true, entryDate: true } }),
+      prisma.movement.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      prisma.document.count({ where: { status: "AGUARDANDO" } }),
+      prisma.movement.findMany({
+        where: { createdAt: { gte: sevenDaysAgo } },
+        select: { type: true, quantity: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
+
+    // 1. Total items
     const totalItems = materials.reduce((acc, m) => acc + m.quantity, 0);
 
-    // 2. Monthly movements (entries/exits in the last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const monthlyMovements = await prisma.movement.count({
-      where: {
-        createdAt: {
-          gte: thirtyDaysAgo,
-        },
-      },
-    });
-
     // 3. Average days in stock
-    const now = new Date();
     let totalDays = 0;
     let countWithEntryDate = 0;
     for (const m of materials) {
       if (m.entryDate) {
         const diffTime = Math.abs(now.getTime() - new Date(m.entryDate).getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        totalDays += diffDays;
+        totalDays += Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         countWithEntryDate++;
       }
     }
     const avgDaysInStock = countWithEntryDate > 0 ? Math.round(totalDays / countWithEntryDate) : 0;
-
-    // 4. Pending signatures
-    const pendingSignatures = await prisma.document.count({
-      where: {
-        status: "AGUARDANDO",
-      },
-    });
-
-    // 5. Weekly entries vs exits (last 7 days grouped by day)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentMovements = await prisma.movement.findMany({
-      where: {
-        createdAt: {
-          gte: sevenDaysAgo,
-        },
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
 
     // Format weekly chart data
     const chartMap = new Map<string, { name: string; entradas: number; saidas: number }>();

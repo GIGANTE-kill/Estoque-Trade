@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Ação Trade Estoque — Gestão de Materiais",
@@ -25,7 +26,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased bg-slate-50 min-h-screen">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
       </body>
     </html>
   );

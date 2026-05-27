@@ -12,18 +12,6 @@ function hashPassword(password) {
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const CATEGORIAS_PDV = [
-  "Banner","Móbile","Wobbler","Stopper","Faixa de gôndola","Totem","Ilha",
-  "Ponta de gôndola","Balcão de degustação","Clip strip","Fita cross","Take one",
-  "Cartaz","Precificador","Saia de palete","Adesivo de piso","Pórtico","Backdrop",
-  "Wind banner","Cubo promocional","Mockup","Glorificador","Stopper luminoso",
-  "Corner","Flange","Stopper de carrinho","Testeira","Cantoneira",
-  "Stopper de prateleira","Cartazete","Separador de compras","Porta-folheto",
-  "Totem fotográfico","Totem interativo","Balcão promocional","Saia de gôndola",
-  "Banner suspenso","Cubo de papelão","Tapete personalizado","Cavalete",
-  "Brinde","Display","Amostra","Forração",
-];
-
 async function main() {
   console.log("🌱 Criando usuários iniciais...\n");
 
@@ -47,16 +35,6 @@ async function main() {
       },
     });
     console.log(`✅ ${u.role}: ${u.email}  /  senha: ${u.password}`);
-  }
-
-  console.log("\n🌱 Criando categorias de PDV...\n");
-  for (const name of CATEGORIAS_PDV) {
-    await prisma.category.upsert({
-      where:  { name },
-      update: {},
-      create: { name },
-    });
-    console.log(`  📦 ${name}`);
   }
 
   console.log("\n🎉 Seed concluído.");

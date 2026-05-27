@@ -34,12 +34,19 @@ interface Material {
   nomeAcao: string | null;
 }
 
+interface MarcadorObj {
+  id: string;
+  name: string;
+  color: string;
+}
+
 interface Solicitacao {
   id: string;
   material: string;
   solicitante: string;
   quantity: number;
   status: "PENDENTE" | "APROVADA" | "REJEITADA";
+  marcador?: MarcadorObj | null;
   createdAt: string;
 }
 
@@ -108,6 +115,17 @@ export default function RelatoriosPage() {
     APROVADA: solicitacoes.filter((s) => s.status === "APROVADA").length,
     REJEITADA: solicitacoes.filter((s) => s.status === "REJEITADA").length,
   };
+
+  const marcadorMap: Record<string, { marcador: MarcadorObj; count: number }> = {};
+  for (const s of solicitacoes) {
+    if (!s.marcador) continue;
+    const key = s.marcador.id;
+    if (!marcadorMap[key]) marcadorMap[key] = { marcador: s.marcador, count: 0 };
+    marcadorMap[key].count++;
+  }
+  const pieDataMarcador = Object.values(marcadorMap)
+    .map(({ marcador, count }) => ({ name: marcador.name, value: count, color: marcador.color }))
+    .filter((d) => d.value > 0);
 
   const topMaterials = [...materials]
     .sort((a, b) => b.quantity - a.quantity)
@@ -345,6 +363,45 @@ export default function RelatoriosPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+
+          {/* ── Marcadores de Solicitação ── */}
+          <section>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Distribuição por Marcador (Tipos de Saída)</p>
+            <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm max-w-sm">
+              <p className="text-sm font-semibold text-slate-800 mb-4">Finalidade das Solicitações</p>
+              {loading ? (
+                <div className="h-48 bg-slate-50 rounded-xl animate-pulse" />
+              ) : pieDataMarcador.length === 0 ? (
+                <div className="h-40 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-xs text-slate-400">
+                  Nenhuma solicitação com marcador
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={pieDataMarcador} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value">
+                        {pieDataMarcador.map((entry, index) => (
+                          <Cell key={index} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-2 mt-2">
+                    {pieDataMarcador.map(({ name, value, color }) => (
+                      <div key={name} className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          <span className="text-slate-600">{name}</span>
+                        </div>
+                        <span className="font-semibold text-slate-800">{value} {value === 1 ? "solicitação" : "solicitações"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </section>
 

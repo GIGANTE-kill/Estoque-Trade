@@ -96,15 +96,17 @@ export default function DashboardPage() {
               Exportar Relatório
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Button
-                  size="sm"
-                  className="h-9 gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm shadow-blue-200"
-                  id="btn-new-movement"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nova Movimentação
-                </Button>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    size="sm"
+                    className="h-9 gap-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm shadow-blue-200"
+                    id="btn-new-movement"
+                  />
+                }
+              >
+                <Plus className="h-4 w-4" />
+                Nova Movimentação
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-40 border border-slate-100 bg-white shadow-lg rounded-xl p-1 text-xs text-slate-700">
                 <DropdownMenuItem
