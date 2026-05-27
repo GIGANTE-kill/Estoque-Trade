@@ -13,10 +13,15 @@ done
 echo "→ PostgreSQL disponível."
 
 echo "→ Resolvendo migrations com falha (se houver)..."
-node node_modules/prisma/build/index.js migrate resolve --rolled-back 20240101000000_init 2>/dev/null || true
+PRISMA="node node_modules/prisma/build/index.js"
+# Marca todas as migrations conhecidas como rolled-back (seguro: ignora erros)
+$PRISMA migrate resolve --rolled-back 20240101000000_init              2>/dev/null || true
+$PRISMA migrate resolve --rolled-back 20260521000000_init              2>/dev/null || true
+$PRISMA migrate resolve --rolled-back 20260521000001_seed_data         2>/dev/null || true
+$PRISMA migrate resolve --rolled-back 20260526000000_dynamic_marcadores 2>/dev/null || true
 
 echo "→ Aplicando migrations..."
-node node_modules/prisma/build/index.js migrate deploy
+$PRISMA migrate deploy
 
 echo "→ Rodando seed (upsert — seguro repetir)..."
 node seed.js || echo "⚠️  Seed falhou, continuando..."
