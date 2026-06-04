@@ -3,15 +3,26 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function naturalCompare(a: string, b: string) {
+  return a.localeCompare(b, "pt-BR", { numeric: true, sensitivity: "base" });
+}
+
 // GET — lista todas as localizações
 export async function GET() {
   try {
     const localizacoes = await prisma.localizacao.findMany({
-      orderBy: { createdAt: "asc" },
       include: {
         _count: { select: { materials: true } },
       },
     });
+
+    localizacoes.sort((a, b) =>
+      naturalCompare(a.rua, b.rua) ||
+      naturalCompare(a.predio, b.predio) ||
+      naturalCompare(a.andar, b.andar) ||
+      naturalCompare(a.apartamento, b.apartamento)
+    );
+
     return NextResponse.json(localizacoes);
   } catch (error: any) {
     console.error("Localizacoes load error:", error);
