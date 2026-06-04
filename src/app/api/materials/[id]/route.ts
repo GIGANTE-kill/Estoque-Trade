@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 
-const STOCK_EDIT_EMAIL = "trademarketing@gruposaoroque.com";
-
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies();
@@ -13,33 +11,57 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.email.toLowerCase() !== STOCK_EDIT_EMAIL) {
+    if (!user || user.role !== "ADMINISTRADOR") {
       return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
     }
 
     const { id } = await params;
     const body = await req.json();
-    const quantity = parseInt(body.quantity, 10);
+    const {
+      name, sku, categoryName, quantity, status,
+      fornecedor, nomeAcao, periodoAcaoInicio, periodoAcaoFim,
+      photoUrl, localizacaoId,
+    } = body;
 
-    if (isNaN(quantity) || quantity < 0) {
-      return NextResponse.json({ error: "Quantidade inválida" }, { status: 400 });
+    // Resolve category by name if provided
+    let categoryId: string | undefined;
+    if (categoryName) {
+      let cat = await prisma.category.findFirst({
+        where: { name: { equals: categoryName, mode: "insensitive" } },
+      });
+      if (!cat) {
+        cat = await prisma.category.create({
+          data: { name: categoryName },
+        });
+      }
+      categoryId = cat.id;
     }
 
-    let status = body.status as string | undefined;
-    if (!status) {
-      status = quantity === 0 ? "ESGOTADO" : "DISPONIVEL";
-    }
+    const qty = quantity !== undefined ? parseInt(quantity, 10) : undefined;
+    const resolvedStatus = status || (qty === 0 ? "ESGOTADO" : "DISPONIVEL");
 
     const updated = await prisma.material.update({
       where: { id },
-      data: { quantity, status: status as any },
+      data: {
+        ...(name               !== undefined && { name }),
+        ...(sku                !== undefined && { sku: sku || null }),
+        ...(categoryId                       && { categoryId }),
+        ...(qty                !== undefined && { quantity: qty }),
+        ...(status             !== undefined && { status: resolvedStatus as any }),
+        ...(fornecedor         !== undefined && { fornecedor: fornecedor || null }),
+        ...(nomeAcao           !== undefined && { nomeAcao: nomeAcao || null }),
+        ...(periodoAcaoInicio  !== undefined && { periodoAcaoInicio: periodoAcaoInicio ? new Date(periodoAcaoInicio) : null }),
+        ...(periodoAcaoFim     !== undefined && { periodoAcaoFim: periodoAcaoFim ? new Date(periodoAcaoFim) : null }),
+        ...(photoUrl           !== undefined && { photoUrl: photoUrl || null }),
+        ...(localizacaoId      !== undefined && { localizacaoId: localizacaoId || null }),
+      },
       include: { category: true, localizacao: true },
     });
 
     return NextResponse.json(updated);
   } catch (error: any) {
     console.error("Material patch error:", error);
-    return NextResponse.json({ error: error.message || "Falha ao atualizar estoque" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Falha ao atualizar material" }, { status: 500 });
   }
 }
 

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useAuth } from "@/lib/AuthContext";
 import { Lightbox } from "@/components/ui/Lightbox";
+import { EditMaterialModal } from "@/components/dashboard/EditMaterialModal";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -224,128 +225,6 @@ function DeleteModal({
   );
 }
 
-const STOCK_EDIT_EMAIL = "trademarketing@gruposaoroque.com";
-
-function EditStockModal({
-  material,
-  onClose,
-  onSuccess,
-}: {
-  material: { id: string; name: string; quantity: number; status: string } | null;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const [quantity, setQuantity] = useState("");
-  const [status, setStatus]     = useState("");
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
-
-  useEffect(() => {
-    if (material) {
-      setQuantity(String(material.quantity));
-      setStatus(material.status);
-      setError("");
-    }
-  }, [material]);
-
-  async function handleSave() {
-    if (!material) return;
-    const qty = parseInt(quantity, 10);
-    if (isNaN(qty) || qty < 0) { setError("Informe uma quantidade válida (≥ 0)"); return; }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/materials/${material.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: qty, status }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Falha ao atualizar");
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (!material) return null;
-
-  const statusOptions = [
-    { value: "DISPONIVEL", label: "Disponível" },
-    { value: "RESERVADO",  label: "Reservado" },
-    { value: "ESGOTADO",   label: "Esgotado" },
-  ];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
-            <Pencil className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">Editar Estoque</p>
-            <p className="text-xs text-slate-500 truncate max-w-[200px]">{material.name}</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Quantidade em estoque</label>
-            <input
-              type="number"
-              min="0"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-300 focus:bg-white transition-all"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-300 focus:bg-white transition-all"
-            >
-              {statusOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {error && (
-          <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <Button
-            onClick={handleSave}
-            disabled={loading}
-            className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface Material {
   id: string;
   name: string;
@@ -360,6 +239,8 @@ interface Material {
   status: string;
   fornecedor: string | null;
   nomeAcao: string | null;
+  periodoAcaoInicio: string | null;
+  periodoAcaoFim: string | null;
   localizacaoId: string | null;
   localizacao: {
     id: string;
@@ -378,8 +259,7 @@ interface CategoryInfo {
 
 export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshTrigger?: number; defaultCategoryId?: string }) {
   const { user }    = useAuth();
-  const isAdmin     = user?.role === "ADMINISTRADOR";
-  const canEditStock = user?.email?.toLowerCase() === STOCK_EDIT_EMAIL;
+  const isAdmin = user?.role === "ADMINISTRADOR";
 
   const [materials, setMaterials]               = useState<Material[]>([]);
   const [categories, setCategories]             = useState<CategoryInfo[]>([]);
@@ -388,7 +268,7 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
   const [filterCategory, setFilterCategory]     = useState(defaultCategoryId ?? "");
   const [filterFornecedor, setFilterFornecedor] = useState("");
   const [deleting, setDeleting]                 = useState<{ id: string; name: string } | null>(null);
-  const [editing, setEditing]                   = useState<{ id: string; name: string; quantity: number; status: string } | null>(null);
+  const [editing, setEditing]                   = useState<Material | null>(null);
   const [refresh, setRefresh]                   = useState(0);
   const [lightboxImage, setLightboxImage]       = useState<string | null>(null);
 
@@ -508,7 +388,7 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                   <TableHead className="text-right text-[10px] font-semibold uppercase tracking-widest text-slate-400">Qtd</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tempo na Casa</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Status</TableHead>
-                  {(isAdmin || canEditStock) && (
+                  {(isAdmin || isAdmin) && (
                     <TableHead className="pr-5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 w-20" />
                   )}
                 </TableRow>
@@ -516,13 +396,13 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={(isAdmin || canEditStock) ? 9 : 8} className="py-16 text-center">
+                    <TableCell colSpan={(isAdmin || isAdmin) ? 9 : 8} className="py-16 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-blue-400 mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={(isAdmin || canEditStock) ? 9 : 8} className="py-16 text-center text-slate-400 text-sm">
+                    <TableCell colSpan={(isAdmin || isAdmin) ? 9 : 8} className="py-16 text-center text-slate-400 text-sm">
                       Nenhum material encontrado para os filtros aplicados.
                     </TableCell>
                   </TableRow>
@@ -592,18 +472,16 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                       <TableCell>
                         <StatusBadge status={material.status} />
                       </TableCell>
-                      {(isAdmin || canEditStock) && (
+                      {isAdmin && (
                         <TableCell className="pr-5">
                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                            {canEditStock && (
-                              <button
-                                onClick={() => setEditing({ id: material.id, name: material.name, quantity: material.quantity, status: material.status })}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
-                                title="Editar estoque"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setEditing(material)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                              title="Editar produto"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
                             {isAdmin && (
                               <button
                                 onClick={() => setDeleting({ id: material.id, name: material.name })}
@@ -637,7 +515,7 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
         onSuccess={() => setRefresh((p) => p + 1)}
       />
 
-      <EditStockModal
+      <EditMaterialModal
         material={editing}
         onClose={() => setEditing(null)}
         onSuccess={() => setRefresh((p) => p + 1)}

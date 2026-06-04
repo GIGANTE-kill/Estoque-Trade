@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
         status: m.status,
         fornecedor: m.fornecedor || null,
         nomeAcao: m.nomeAcao || null,
+        periodoAcaoInicio: m.periodoAcaoInicio ? m.periodoAcaoInicio.toISOString().split("T")[0] : null,
+        periodoAcaoFim: m.periodoAcaoFim ? m.periodoAcaoFim.toISOString().split("T")[0] : null,
         localizacaoId: m.localizacaoId || null,
         localizacao: m.localizacao
           ? {
