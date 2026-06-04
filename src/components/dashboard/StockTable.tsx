@@ -6,7 +6,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, Trash2, Loader2, AlertCircle, X, ChevronDown } from "lucide-react";
+import { Search, Trash2, Loader2, AlertCircle, X, ChevronDown, Pencil } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -224,6 +224,128 @@ function DeleteModal({
   );
 }
 
+const STOCK_EDIT_EMAIL = "trademarketing@gruposaoroque.com";
+
+function EditStockModal({
+  material,
+  onClose,
+  onSuccess,
+}: {
+  material: { id: string; name: string; quantity: number; status: string } | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [quantity, setQuantity] = useState("");
+  const [status, setStatus]     = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  useEffect(() => {
+    if (material) {
+      setQuantity(String(material.quantity));
+      setStatus(material.status);
+      setError("");
+    }
+  }, [material]);
+
+  async function handleSave() {
+    if (!material) return;
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty < 0) { setError("Informe uma quantidade válida (≥ 0)"); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/materials/${material.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity: qty, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha ao atualizar");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!material) return null;
+
+  const statusOptions = [
+    { value: "DISPONIVEL", label: "Disponível" },
+    { value: "RESERVADO",  label: "Reservado" },
+    { value: "ESGOTADO",   label: "Esgotado" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+            <Pencil className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Editar Estoque</p>
+            <p className="text-xs text-slate-500 truncate max-w-[200px]">{material.name}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Quantidade em estoque</label>
+            <input
+              type="number"
+              min="0"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-300 focus:bg-white transition-all"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full h-9 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800 outline-none focus:border-blue-300 focus:bg-white transition-all"
+            >
+              {statusOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <Button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Material {
   id: string;
   name: string;
@@ -238,6 +360,14 @@ interface Material {
   status: string;
   fornecedor: string | null;
   nomeAcao: string | null;
+  localizacaoId: string | null;
+  localizacao: {
+    id: string;
+    rua: string;
+    predio: string;
+    andar: string;
+    apartamento: string;
+  } | null;
 }
 
 interface CategoryInfo {
@@ -249,6 +379,7 @@ interface CategoryInfo {
 export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshTrigger?: number; defaultCategoryId?: string }) {
   const { user }    = useAuth();
   const isAdmin     = user?.role === "ADMINISTRADOR";
+  const canEditStock = user?.email?.toLowerCase() === STOCK_EDIT_EMAIL;
 
   const [materials, setMaterials]               = useState<Material[]>([]);
   const [categories, setCategories]             = useState<CategoryInfo[]>([]);
@@ -257,6 +388,7 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
   const [filterCategory, setFilterCategory]     = useState(defaultCategoryId ?? "");
   const [filterFornecedor, setFilterFornecedor] = useState("");
   const [deleting, setDeleting]                 = useState<{ id: string; name: string } | null>(null);
+  const [editing, setEditing]                   = useState<{ id: string; name: string; quantity: number; status: string } | null>(null);
   const [refresh, setRefresh]                   = useState(0);
   const [lightboxImage, setLightboxImage]       = useState<string | null>(null);
 
@@ -372,24 +504,25 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Material</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Categoria</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fornecedor</TableHead>
+                  <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Localização</TableHead>
                   <TableHead className="text-right text-[10px] font-semibold uppercase tracking-widest text-slate-400">Qtd</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Tempo na Casa</TableHead>
                   <TableHead className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Status</TableHead>
-                  {isAdmin && (
-                    <TableHead className="pr-5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 w-12" />
+                  {(isAdmin || canEditStock) && (
+                    <TableHead className="pr-5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 w-20" />
                   )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-16 text-center">
+                    <TableCell colSpan={(isAdmin || canEditStock) ? 9 : 8} className="py-16 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-blue-400 mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 8 : 7} className="py-16 text-center text-slate-400 text-sm">
+                    <TableCell colSpan={(isAdmin || canEditStock) ? 9 : 8} className="py-16 text-center text-slate-400 text-sm">
                       Nenhum material encontrado para os filtros aplicados.
                     </TableCell>
                   </TableRow>
@@ -425,6 +558,28 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                           <span className="text-xs text-slate-300">—</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        {material.localizacao ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                              {material.localizacao.rua}
+                            </span>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                                {material.localizacao.predio}
+                              </span>
+                              <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                {material.localizacao.andar}
+                              </span>
+                              <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                Apto {material.localizacao.apartamento}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                         <span className={cn("text-sm font-bold", material.quantity === 0 ? "text-red-500" : "text-slate-900")}>
                           {material.quantity.toLocaleString("pt-BR")}
@@ -437,15 +592,28 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                       <TableCell>
                         <StatusBadge status={material.status} />
                       </TableCell>
-                      {isAdmin && (
+                      {(isAdmin || canEditStock) && (
                         <TableCell className="pr-5">
-                          <button
-                            onClick={() => setDeleting({ id: material.id, name: material.name })}
-                            className="opacity-0 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
-                            title="Excluir produto"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                            {canEditStock && (
+                              <button
+                                onClick={() => setEditing({ id: material.id, name: material.name, quantity: material.quantity, status: material.status })}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                                title="Editar estoque"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => setDeleting({ id: material.id, name: material.name })}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                                title="Excluir produto"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -466,6 +634,12 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
       <DeleteModal
         material={deleting}
         onClose={() => setDeleting(null)}
+        onSuccess={() => setRefresh((p) => p + 1)}
+      />
+
+      <EditStockModal
+        material={editing}
+        onClose={() => setEditing(null)}
         onSuccess={() => setRefresh((p) => p + 1)}
       />
 
