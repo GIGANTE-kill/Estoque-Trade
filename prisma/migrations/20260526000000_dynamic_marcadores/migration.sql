@@ -1,5 +1,5 @@
 -- CreateTable: marcadores (dynamic labels with custom colors)
-CREATE TABLE "marcadores" (
+CREATE TABLE IF NOT EXISTS "marcadores" (
   "id"        TEXT        NOT NULL,
   "name"      TEXT        NOT NULL,
   "color"     TEXT        NOT NULL DEFAULT '#6366f1',
@@ -12,21 +12,28 @@ CREATE TABLE "marcadores" (
 INSERT INTO "marcadores" ("id", "name", "color") VALUES
   ('marcador_brinde',   'Brinde Normal',          '#8b5cf6'),
   ('marcador_trade',    'Ação de Trade',           '#3b82f6'),
-  ('marcador_condicao', 'Condição para Compra',    '#f59e0b');
+  ('marcador_condicao', 'Condição para Compra',    '#f59e0b')
+ON CONFLICT ("id") DO NOTHING;
 
 -- Add marcadorId FK column to solicitacoes
-ALTER TABLE "solicitacoes" ADD COLUMN "marcadorId" TEXT;
+ALTER TABLE "solicitacoes" ADD COLUMN IF NOT EXISTS "marcadorId" TEXT;
 
 -- Migrate existing enum values to FK references
 UPDATE "solicitacoes" SET "marcadorId" = 'marcador_brinde'   WHERE "marcador"::TEXT = 'BRINDE_NORMAL';
 UPDATE "solicitacoes" SET "marcadorId" = 'marcador_trade'    WHERE "marcador"::TEXT = 'ACAO_DE_TRADE';
 UPDATE "solicitacoes" SET "marcadorId" = 'marcador_condicao' WHERE "marcador"::TEXT = 'CONDICAO_PARA_COMPRA';
 
--- Add foreign key constraint
-ALTER TABLE "solicitacoes"
-  ADD CONSTRAINT "solicitacoes_marcadorId_fkey"
-  FOREIGN KEY ("marcadorId") REFERENCES "marcadores"("id")
-  ON DELETE SET NULL ON UPDATE CASCADE;
+-- Add foreign key constraint (skip if already exists)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'solicitacoes_marcadorId_fkey'
+  ) THEN
+    ALTER TABLE "solicitacoes"
+      ADD CONSTRAINT "solicitacoes_marcadorId_fkey"
+      FOREIGN KEY ("marcadorId") REFERENCES "marcadores"("id")
+      ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- Drop old enum column
 ALTER TABLE "solicitacoes" DROP COLUMN IF EXISTS "marcador";

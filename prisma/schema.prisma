@@ -52,27 +52,44 @@ model Category {
 }
 
 // ─────────────────────────────────────────────
+// LOCALIZAÇÕES DO ESTOQUE
+// ─────────────────────────────────────────────
+model Localizacao {
+  id          String     @id @default(cuid())
+  rua         String
+  predio      String
+  andar       String
+  apartamento String
+  materials   Material[]
+  createdAt   DateTime   @default(now())
+
+  @@map("localizacoes")
+}
+
+// ─────────────────────────────────────────────
 // MATERIAIS DE TRADE (ESTOQUE)
 // ─────────────────────────────────────────────
 model Material {
-  id                 String      @id @default(cuid())
+  id                 String       @id @default(cuid())
   name               String
-  sku                String?     @unique
+  sku                String?      @unique
   categoryId         String
-  category           Category    @relation(fields: [categoryId], references: [id])
-  quantity           Int         @default(0)
-  unitCost           Float?      // Custo unitário (opcional)
-  entryDate          DateTime    @default(now())
-  status             MatStatus   @default(DISPONIVEL)
-  fornecedor         String?     // Fornecedor do material
-  nomeAcao           String?     // Nome da ação/campanha
-  periodoAcaoInicio  DateTime?   // Início do período da ação
-  periodoAcaoFim     DateTime?   // Fim do período da ação
-  photoUrl           String?     // Foto do produto para identificação visual
+  category           Category     @relation(fields: [categoryId], references: [id])
+  quantity           Int          @default(0)
+  unitCost           Float?       // Custo unitário (opcional)
+  entryDate          DateTime     @default(now())
+  status             MatStatus    @default(DISPONIVEL)
+  fornecedor         String?      // Fornecedor do material
+  nomeAcao           String?      // Nome da ação/campanha
+  periodoAcaoInicio  DateTime?    // Início do período da ação
+  periodoAcaoFim     DateTime?    // Fim do período da ação
+  photoUrl           String?      // Foto do produto para identificação visual
+  localizacaoId      String?      // Endereço do produto no estoque
+  localizacao        Localizacao? @relation(fields: [localizacaoId], references: [id])
   movements          Movement[]
   solicitacoes       Solicitacao[]
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   @@map("materials")
 }

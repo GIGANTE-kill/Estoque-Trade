@@ -20,7 +20,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { X, Save, AlertCircle, ImagePlus, Loader2, ChevronDown, Search } from "lucide-react";
+import { X, Save, AlertCircle, ImagePlus, Loader2, ChevronDown, Search, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadFile } from "@/lib/upload-helper";
 import Image from "next/image";
@@ -46,6 +46,12 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
   const [periodoAcaoInicio, setPeriodoAcaoInicio] = useState("");
   const [periodoAcaoFim, setPeriodoAcaoFim] = useState("");
 
+  // Endereço via FK
+  const [localizacoes, setLocalizacoes] = useState<{ id: string; rua: string; predio: string; andar: string; apartamento: string }[]>([]);
+  const [localizacaoId, setLocalizacaoId] = useState("");
+  const [locOpen, setLocOpen] = useState(false);
+  const [locSearch, setLocSearch] = useState("");
+
   // Estado da foto do produto
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -61,13 +67,28 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
         .then((data) => {
           if (Array.isArray(data)) setCategories(data.map((c: any) => c.name));
         })
-        .catch(() => {});
+        .catch(() => { });
+
+      fetch("/api/localizacoes")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setLocalizacoes(data);
+        })
+        .catch(() => { });
     }
   }, [isOpen]);
 
   const filteredCategories = categories.filter((c) =>
     c.toLowerCase().includes(categorySearch.toLowerCase())
   );
+
+  const filteredLocalizacoes = localizacoes.filter((loc) =>
+    `${loc.rua} ${loc.predio} ${loc.andar} ${loc.apartamento}`
+      .toLowerCase()
+      .includes(locSearch.toLowerCase())
+  );
+
+  const selectedLoc = localizacoes.find((l) => l.id === localizacaoId) || null;
 
   if (!isOpen) return null;
 
@@ -90,6 +111,9 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
     setNomeAcao("");
     setPeriodoAcaoInicio("");
     setPeriodoAcaoFim("");
+    setLocalizacaoId("");
+    setLocOpen(false);
+    setLocSearch("");
     setPhotoFile(null);
     setPhotoPreview(null);
     setError("");
@@ -126,6 +150,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
           periodoAcaoInicio,
           periodoAcaoFim,
           photoUrl,
+          localizacaoId: localizacaoId || undefined,
         }),
       });
 
@@ -320,7 +345,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             </div>
           </div>
 
-          {/* ── Fornecedor ─────────────────────────────────── */}
+          {/* ── Fornecedor ────────────────────────────────────── */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Fornecedor (Opcional)
@@ -334,6 +359,74 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             />
           </div>
 
+
+          {/* ── Endereço (Localização via FK) ────────────────────── */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-blue-500" />
+              Localização no Estoque
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => { setLocOpen((v) => !v); setLocSearch(""); }}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all flex items-center justify-between gap-2"
+              >
+                <span className={selectedLoc ? "text-slate-700" : "text-slate-400"}>
+                  {selectedLoc
+                    ? `${selectedLoc.rua} · ${selectedLoc.predio} · ${selectedLoc.andar} · Apto ${selectedLoc.apartamento}`
+                    : "Selecione um endereço..."}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              </button>
+              {locOpen && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                  <div className="p-2 border-b border-slate-100">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar endereço..."
+                        value={locSearch}
+                        onChange={(e) => setLocSearch(e.target.value)}
+                        autoFocus
+                        className="w-full h-8 pl-8 pr-3 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-400"
+                      />
+                    </div>
+                  </div>
+                  <ul className="max-h-48 overflow-y-auto py-1">
+                    <li
+                      onClick={() => { setLocalizacaoId(""); setLocOpen(false); }}
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-slate-50 transition-colors ${!localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-500"
+                        }`}
+                    >
+                      Sem localização
+                    </li>
+                    {filteredLocalizacoes.length === 0 ? (
+                      <li className="px-3 py-3 text-xs text-slate-400 text-center">
+                        Nenhum endereço encontrado.
+                        <span className="block text-[10px] mt-0.5">Cadastre em Gestão → Endereço</span>
+                      </li>
+                    ) : (
+                      filteredLocalizacoes.map((loc) => (
+                        <li
+                          key={loc.id}
+                          onClick={() => { setLocalizacaoId(loc.id); setLocOpen(false); }}
+                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${loc.id === localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
+                            }`}
+                        >
+                          <p className="font-medium">{loc.rua}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            {loc.predio} · {loc.andar} Andar · Apto {loc.apartamento}
+                          </p>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
           {/* ── Nome da Ação ───────────────────────────────── */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">

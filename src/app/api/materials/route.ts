@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
       where: categoryId ? { categoryId } : undefined,
       include: {
         category: true,
+        localizacao: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -37,6 +38,16 @@ export async function GET(request: NextRequest) {
         status: m.status,
         fornecedor: m.fornecedor || null,
         nomeAcao: m.nomeAcao || null,
+        localizacaoId: m.localizacaoId || null,
+        localizacao: m.localizacao
+          ? {
+              id: m.localizacao.id,
+              rua: m.localizacao.rua,
+              predio: m.localizacao.predio,
+              andar: m.localizacao.andar,
+              apartamento: m.localizacao.apartamento,
+            }
+          : null,
       };
     });
 
@@ -51,7 +62,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, sku, categoryName, quantity, entryDate, status, fornecedor, nomeAcao, periodoAcaoInicio, periodoAcaoFim, photoUrl } = body;
+    const {
+      name, sku, categoryName, quantity, entryDate,
+      status, fornecedor, nomeAcao, periodoAcaoInicio,
+      periodoAcaoFim, photoUrl, localizacaoId,
+    } = body;
 
     if (!name || !categoryName) {
       return NextResponse.json({ error: "Nome e Categoria são obrigatórios" }, { status: 400 });
@@ -82,9 +97,11 @@ export async function POST(request: Request) {
         periodoAcaoInicio: periodoAcaoInicio ? new Date(periodoAcaoInicio) : null,
         periodoAcaoFim: periodoAcaoFim ? new Date(periodoAcaoFim) : null,
         photoUrl: photoUrl || null,
+        localizacaoId: localizacaoId || null,
       },
       include: {
         category: true,
+        localizacao: true,
       },
     });
 

@@ -13,6 +13,7 @@ import {
   ClipboardList,
   LogOut,
   Tag,
+  MapPin,
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,7 @@ export function Sidebar() {
     fetch("/api/solicitacoes?status=PENDENTE")
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setPendingCount(data.length); })
-      .catch(() => {});
+      .catch(() => { });
   }, [pathname]);
 
   const navGroups = [
@@ -52,16 +53,17 @@ export function Sidebar() {
     },
     ...(user?.role !== "OPERADOR"
       ? [{
-          label: "Gestão",
-          items: [
-            { href: "/permissoes", label: "Permissões", icon: Shield, badge: null },
-            { href: "/relatorios", label: "Relatórios", icon: BarChart3, badge: null },
-            { href: "/saidas", label: "Histórico de Saídas", icon: ArrowUpCircle, badge: null },
-            ...(user?.role === "ADMINISTRADOR"
-              ? [{ href: "/categorias", label: "Categorias", icon: Tag, badge: null }]
-              : []),
-          ],
-        }]
+        label: "Gestão",
+        items: [
+          { href: "/permissoes", label: "Permissões", icon: Shield, badge: null },
+          { href: "/relatorios", label: "Relatórios", icon: BarChart3, badge: null },
+          { href: "/saidas", label: "Histórico de Saídas", icon: ArrowUpCircle, badge: null },
+          { href: "/gestao", label: "Endereço", icon: MapPin, badge: null },
+          ...(user?.role === "ADMINISTRADOR"
+            ? [{ href: "/categorias", label: "Categorias", icon: Tag, badge: null }]
+            : []),
+        ],
+      }]
       : []),
   ];
 

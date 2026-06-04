@@ -17,7 +17,6 @@ import {
   Bell,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { mockKpis } from "@/lib/mock-data";
 import { MovementModal } from "@/components/dashboard/MovementModal";
 import { MaterialModal } from "@/components/dashboard/MaterialModal";
 import {
@@ -53,11 +52,10 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [refreshTrigger]);
 
-  // Fallbacks to mock data if DB is loading or empty
-  const totalItems = stats ? stats.totalItems : mockKpis.totalItems;
-  const monthlyMovements = stats ? stats.monthlyMovements : mockKpis.monthlyMovements;
-  const avgDaysInStock = stats ? stats.avgDaysInStock : mockKpis.avgDaysInStock;
-  const pendingSignatures = stats ? stats.pendingSignatures : mockKpis.pendingSignatures;
+  const totalItems = stats?.totalItems ?? 0;
+  const monthlyMovements = stats?.monthlyMovements ?? 0;
+  const avgDaysInStock = stats?.avgDaysInStock ?? 0;
+  const pendingSignatures = stats?.pendingSignatures ?? 0;
 
   return (
     <AppShell>
@@ -142,7 +140,6 @@ export default function DashboardPage() {
                 value={loading ? "..." : totalItems.toLocaleString("pt-BR")}
                 subtitle="Total de unidades disponíveis"
                 icon={Package}
-                trend={{ value: 8, label: "vs mês anterior" }}
                 variant="primary"
               />
               <KpiCard
@@ -150,14 +147,12 @@ export default function DashboardPage() {
                 value={loading ? "..." : monthlyMovements}
                 subtitle="Entradas e saídas registradas"
                 icon={ArrowRightLeft}
-                trend={{ value: -3, label: "vs mês anterior" }}
               />
               <KpiCard
                 title="Tempo Médio na Casa"
                 value={loading ? "..." : `${avgDaysInStock} Dias`}
                 subtitle="Média de permanência no estoque"
                 icon={Clock}
-                trend={{ value: -12, label: "vs mês anterior" }}
               />
               <KpiCard
                 title="Saídas Pendentes"
