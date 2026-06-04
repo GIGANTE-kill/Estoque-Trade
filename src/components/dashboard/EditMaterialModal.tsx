@@ -328,7 +328,7 @@ export function EditMaterialModal({ material, onClose, onSuccess }: EditMaterial
               >
                 <span className={selectedLoc ? "text-slate-700" : "text-slate-400"}>
                   {selectedLoc
-                    ? `${selectedLoc.rua} · ${selectedLoc.predio} · ${selectedLoc.andar} · Apto ${selectedLoc.apartamento}`
+                    ? `${selectedLoc.rua} · ${selectedLoc.predio} · ${selectedLoc.andar} · ${selectedLoc.apartamento}`
                     : "Selecione um endereço..."}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -367,10 +367,12 @@ export function EditMaterialModal({ material, onClose, onSuccess }: EditMaterial
                           onClick={() => { setLocalizacaoId(loc.id); setLocOpen(false); }}
                           className={`px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${loc.id === localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
                         >
-                          <p className="font-medium">{loc.rua}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            {loc.predio} · {loc.andar} Andar · Apto {loc.apartamento}
-                          </p>
+                          <p className="font-medium text-slate-800">{loc.rua}</p>
+                          <div className="flex items-center gap-1 mt-1 flex-wrap">
+                            <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">{loc.predio}</span>
+                            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.andar}</span>
+                            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.apartamento}</span>
+                          </div>
                         </li>
                       ))
                     )}

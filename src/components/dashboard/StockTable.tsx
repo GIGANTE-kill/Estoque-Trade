@@ -452,7 +452,7 @@ export function StockTable({ refreshTrigger = 0, defaultCategoryId }: { refreshT
                                 {material.localizacao.andar}
                               </span>
                               <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                                Apto {material.localizacao.apartamento}
+                                {material.localizacao.apartamento}
                               </span>
                             </div>
                           </div>
