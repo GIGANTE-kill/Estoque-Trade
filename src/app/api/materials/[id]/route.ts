@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const {
       name, sku, categoryName, quantity, status,
       fornecedor, nomeAcao, periodoAcaoInicio, periodoAcaoFim,
-      photoUrl, localizacaoId,
+      dataValidade, photoUrl, localizacaoId,
     } = body;
 
     // Resolve category by name if provided
@@ -52,6 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(nomeAcao           !== undefined && { nomeAcao: nomeAcao || null }),
         ...(periodoAcaoInicio  !== undefined && { periodoAcaoInicio: periodoAcaoInicio ? new Date(periodoAcaoInicio) : null }),
         ...(periodoAcaoFim     !== undefined && { periodoAcaoFim: periodoAcaoFim ? new Date(periodoAcaoFim) : null }),
+        ...(dataValidade       !== undefined && { dataValidade: dataValidade ? new Date(dataValidade) : null }),
         ...(photoUrl           !== undefined && { photoUrl: photoUrl || null }),
         ...(localizacaoId      !== undefined && { localizacaoId: localizacaoId || null }),
       },

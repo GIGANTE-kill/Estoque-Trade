@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, AlertCircle, Send, CheckCircle2, Loader2, Search, Plus, Trash2, Tag } from "lucide-react";
+import { X, AlertCircle, Send, CheckCircle2, Loader2, Search, Plus, Trash2, Tag, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/AuthContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface MarcadorOption {
   id: string;
@@ -83,6 +84,66 @@ function NewMarcadorForm({ onCreated }: { onCreated: (m: MarcadorOption) => void
   );
 }
 
+function FilterPill({
+  label, value, options, onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onOut(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOut);
+    return () => document.removeEventListener("mousedown", onOut);
+  }, []);
+
+  const sel = options.find((o) => o.value === value);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        className={cn(
+          "h-7 flex items-center gap-1 rounded-lg border px-2 text-[10px] font-medium transition-all",
+          value ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"
+        )}
+      >
+        {sel ? sel.label : label}
+        <ChevronDown className="h-3 w-3 opacity-60" />
+      </button>
+      {open && (
+        <div className="absolute z-30 top-8 left-0 min-w-[160px] max-h-52 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-xl">
+          <div className="p-1">
+            <button
+              type="button"
+              onClick={() => { onChange(""); setOpen(false); }}
+              className={cn("w-full text-left px-3 py-1.5 rounded-lg text-[10px] font-medium", !value ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:bg-slate-50")}
+            >
+              Todos
+            </button>
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={cn("w-full text-left px-3 py-1.5 rounded-lg text-[10px] font-medium truncate", value === opt.value ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50")}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SolicitacaoModal({
   isOpen,
   onClose,
@@ -96,6 +157,8 @@ export function SolicitacaoModal({
   const [showNewMarcador, setShowNewMarcador] = useState(false);
 
   const [search, setSearch] = useState("");
+  const [filterCategoria, setFilterCategoria] = useState("");
+  const [filterFornecedor, setFilterFornecedor] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [selectedMat, setSelectedMat] = useState<any | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -116,6 +179,7 @@ export function SolicitacaoModal({
       fetch("/api/marcadores").then((r) => r.json()),
     ]).then(([mats, marks]) => {
       if (Array.isArray(mats)) {
+        // já ordenado por entryDate asc na API
         setMaterials(mats);
         if (preselectedMaterial) {
           const mat = mats.find((m: any) => m.id === preselectedMaterial.id);
@@ -143,6 +207,8 @@ export function SolicitacaoModal({
 
   function reset() {
     setSearch("");
+    setFilterCategoria("");
+    setFilterFornecedor("");
     setSelectedMat(null);
     setCurrentQuantity(1);
     setItems([]);
@@ -154,9 +220,17 @@ export function SolicitacaoModal({
     setShowNewMarcador(false);
   }
 
-  const filteredMaterials = materials.filter((m) =>
-    m.name.toLowerCase().includes(search.toLowerCase()) && !items.find(i => i.material.id === m.id)
-  );
+  // Opções únicas para filtros
+  const categorias = Array.from(new Set(materials.map((m) => m.category).filter(Boolean))).sort() as string[];
+  const fornecedores = Array.from(new Set(materials.map((m) => m.fornecedor).filter(Boolean))).sort() as string[];
+
+  const filteredMaterials = materials.filter((m) => {
+    const matchSearch = m.name.toLowerCase().includes(search.toLowerCase());
+    const matchCat = !filterCategoria || m.category === filterCategoria;
+    const matchForn = !filterFornecedor || m.fornecedor === filterFornecedor;
+    const notAlreadyAdded = !items.find(i => i.material.id === m.id);
+    return matchSearch && matchCat && matchForn && notAlreadyAdded;
+  });
 
   function selectMaterial(m: any) {
     setSelectedMat(m);
@@ -288,9 +362,7 @@ export function SolicitacaoModal({
 
               {/* Solicitante */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Solicitante
-                </label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Solicitante</label>
                 <div className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-100 text-xs text-slate-700 flex items-center gap-2">
                   {authLoading ? (
                     <span className="text-slate-400">Carregando...</span>
@@ -316,6 +388,40 @@ export function SolicitacaoModal({
               {/* Adicionar Material */}
               <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 space-y-3">
                 <p className="text-xs font-semibold text-blue-800">Adicionar Produtos</p>
+
+                {/* Filtros de categoria e fornecedor */}
+                {!loadingMaterials && (categorias.length > 0 || fornecedores.length > 0) && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-slate-400 font-medium">Filtrar:</span>
+                    {categorias.length > 0 && (
+                      <FilterPill
+                        label="Categoria"
+                        value={filterCategoria}
+                        options={categorias.map((c) => ({ value: c, label: c }))}
+                        onChange={(v) => { setFilterCategoria(v); setDropdownOpen(true); }}
+                      />
+                    )}
+                    {fornecedores.length > 0 && (
+                      <FilterPill
+                        label="Fornecedor"
+                        value={filterFornecedor}
+                        options={fornecedores.map((f) => ({ value: f, label: f }))}
+                        onChange={(v) => { setFilterFornecedor(v); setDropdownOpen(true); }}
+                      />
+                    )}
+                    {(filterCategoria || filterFornecedor) && (
+                      <button
+                        type="button"
+                        onClick={() => { setFilterCategoria(""); setFilterFornecedor(""); }}
+                        className="h-7 flex items-center gap-1 px-2 rounded-lg text-[10px] font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                        Limpar
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-2 items-start" ref={searchRef}>
                   <div className="flex-1 space-y-1.5 relative">
                     {loadingMaterials ? (
@@ -332,7 +438,7 @@ export function SolicitacaoModal({
                           className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 outline-none focus:border-blue-500 transition-all"
                         />
                         {dropdownOpen && (
-                          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden max-h-52 overflow-y-auto">
                             {filteredMaterials.length === 0 ? (
                               <p className="p-3 text-xs text-slate-400 text-center">Nenhum material encontrado</p>
                             ) : (
@@ -346,11 +452,9 @@ export function SolicitacaoModal({
                                 >
                                   <div className="min-w-0">
                                     <p className="font-medium text-slate-800 truncate">{m.name}</p>
-                                    {(m.fornecedor || m.nomeAcao) && (
-                                      <p className="text-[10px] text-slate-400 truncate">
-                                        {[m.fornecedor, m.nomeAcao].filter(Boolean).join(" · ")}
-                                      </p>
-                                    )}
+                                    <p className="text-[10px] text-slate-400 truncate">
+                                      {[m.category, m.fornecedor, m.nomeAcao].filter(Boolean).join(" · ")}
+                                    </p>
                                   </div>
                                   <span className={`shrink-0 text-[10px] font-semibold ${m.quantity === 0 ? "text-red-400" : "text-slate-400"}`}>
                                     {m.quantity === 0 ? "Esgotado" : `${m.quantity} un.`}
@@ -384,6 +488,9 @@ export function SolicitacaoModal({
                 {selectedMat && (
                   <p className="text-[10px] text-slate-500">
                     Estoque disponível: <strong className="text-emerald-600">{selectedMat.quantity} un.</strong>
+                    {selectedMat.entryDate && (
+                      <span className="text-slate-400"> · Entrada: {selectedMat.entryDate}</span>
+                    )}
                   </p>
                 )}
               </div>
@@ -404,11 +511,9 @@ export function SolicitacaoModal({
                       <div key={idx} className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
                         <div>
                           <p className="text-xs font-semibold text-slate-800">{item.material.name}</p>
-                          {(item.material.fornecedor || item.material.nomeAcao) && (
-                            <p className="text-[10px] text-slate-400">
-                              {[item.material.fornecedor, item.material.nomeAcao].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
+                          <p className="text-[10px] text-slate-400">
+                            {[item.material.category, item.material.fornecedor, item.material.nomeAcao].filter(Boolean).join(" · ")}
+                          </p>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-0.5">

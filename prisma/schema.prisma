@@ -83,6 +83,7 @@ model Material {
   nomeAcao           String?      // Nome da ação/campanha
   periodoAcaoInicio  DateTime?    // Início do período da ação
   periodoAcaoFim     DateTime?    // Fim do período da ação
+  dataValidade       DateTime?    // Data de validade do produto
   photoUrl           String?      // Foto do produto para identificação visual
   localizacaoId      String?      // Endereço do produto no estoque
   localizacao        Localizacao? @relation(fields: [localizacaoId], references: [id])

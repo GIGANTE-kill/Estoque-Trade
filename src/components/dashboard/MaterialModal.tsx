@@ -1,26 +1,7 @@
 "use client";
 
-/**
- * MaterialModal
- *
- * Modal unificado de cadastro/edição de material de estoque.
- * Corresponde à operação de "Entrada" — adicionar um novo item ao sistema
- * já com quantidade inicial.
- *
- * Campos:
- *  - Foto do produto (upload local → /api/upload)
- *  - Nome, SKU, Categoria, Quantidade inicial, Status
- *  - Fornecedor, Nome da Ação, Período da Ação (início/fim)
- *
- * Regras de negócio:
- *  - Nome e Categoria são obrigatórios.
- *  - A foto é opcional, mas recomendada para facilitar identificação na tabela.
- *  - Upload ocorre antes do POST do material; em caso de falha no upload a
- *    criação do material é abortada com mensagem de erro.
- */
-
 import { useState, useRef, useEffect } from "react";
-import { X, Save, AlertCircle, ImagePlus, Loader2, ChevronDown, Search, MapPin } from "lucide-react";
+import { X, Save, AlertCircle, ImagePlus, Loader2, ChevronDown, Search, MapPin, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadFile } from "@/lib/upload-helper";
 import Image from "next/image";
@@ -29,6 +10,15 @@ interface MaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+}
+
+interface LocInfo {
+  id: string;
+  rua: string;
+  predio: string;
+  andar: string;
+  apartamento: string;
+  _count?: { materials: number };
 }
 
 export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps) {
@@ -45,14 +35,14 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
   const [nomeAcao, setNomeAcao] = useState("");
   const [periodoAcaoInicio, setPeriodoAcaoInicio] = useState("");
   const [periodoAcaoFim, setPeriodoAcaoFim] = useState("");
+  const [dataValidade, setDataValidade] = useState("");
 
-  // Endereço via FK
-  const [localizacoes, setLocalizacoes] = useState<{ id: string; rua: string; predio: string; andar: string; apartamento: string }[]>([]);
+  const [localizacoes, setLocalizacoes] = useState<LocInfo[]>([]);
   const [localizacaoId, setLocalizacaoId] = useState("");
   const [locOpen, setLocOpen] = useState(false);
   const [locSearch, setLocSearch] = useState("");
+  const [confirmMultiplos, setConfirmMultiplos] = useState(false);
 
-  // Estado da foto do produto
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,16 +54,12 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
     if (isOpen) {
       fetch("/api/categories")
         .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) setCategories(data.map((c: any) => c.name));
-        })
+        .then((data) => { if (Array.isArray(data)) setCategories(data.map((c: any) => c.name)); })
         .catch(() => { });
 
       fetch("/api/localizacoes")
         .then((r) => r.json())
-        .then((data) => {
-          if (Array.isArray(data)) setLocalizacoes(data);
-        })
+        .then((data) => { if (Array.isArray(data)) setLocalizacoes(data); })
         .catch(() => { });
     }
   }, [isOpen]);
@@ -89,6 +75,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
   );
 
   const selectedLoc = localizacoes.find((l) => l.id === localizacaoId) || null;
+  const locTemProduto = selectedLoc && (selectedLoc._count?.materials ?? 0) > 0;
 
   if (!isOpen) return null;
 
@@ -111,12 +98,20 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
     setNomeAcao("");
     setPeriodoAcaoInicio("");
     setPeriodoAcaoFim("");
+    setDataValidade("");
     setLocalizacaoId("");
     setLocOpen(false);
     setLocSearch("");
+    setConfirmMultiplos(false);
     setPhotoFile(null);
     setPhotoPreview(null);
     setError("");
+  }
+
+  function handleLocSelect(id: string) {
+    setLocalizacaoId(id);
+    setLocOpen(false);
+    setConfirmMultiplos(false);
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -124,17 +119,21 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
     if (!name.trim()) { setError("Nome do material é obrigatório."); return; }
     if (!categoryName.trim()) { setError("Categoria é obrigatória."); return; }
 
+    // Bloqueia se endereço tem produto e ainda não confirmou
+    if (locTemProduto && !confirmMultiplos) {
+      setError("O endereço selecionado já possui produto(s). Confirme abaixo para continuar.");
+      return;
+    }
+
     setSubmitting(true);
     setError("");
 
     try {
-      // 1. Faz upload da foto (se houver) antes de criar o material
       let photoUrl: string | undefined;
       if (photoFile) {
         photoUrl = await uploadFile(photoFile, "produto");
       }
 
-      // 2. Cria o material
       const response = await fetch("/api/materials", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,6 +148,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
           nomeAcao,
           periodoAcaoInicio,
           periodoAcaoFim,
+          dataValidade: dataValidade || undefined,
           photoUrl,
           localizacaoId: localizacaoId || undefined,
         }),
@@ -186,7 +186,6 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
           </button>
         </div>
 
-        {/* Form com scroll */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
           {error && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs flex items-start gap-2">
@@ -195,7 +194,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             </div>
           )}
 
-          {/* ── Foto do Produto ─────────────────────────── */}
+          {/* Foto */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Foto do Produto (Opcional)
@@ -205,12 +204,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
               className="relative flex items-center justify-center h-28 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all overflow-hidden group"
             >
               {photoPreview ? (
-                <Image
-                  src={photoPreview}
-                  alt="Preview"
-                  fill
-                  className="object-cover rounded-xl"
-                />
+                <Image src={photoPreview} alt="Preview" fill className="object-cover rounded-xl" />
               ) : (
                 <div className="flex flex-col items-center gap-1.5 text-slate-400 group-hover:text-blue-500 transition-colors">
                   <ImagePlus className="h-7 w-7" />
@@ -220,22 +214,14 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
               )}
               {photoPreview && (
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                    Trocar foto
-                  </span>
+                  <span className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">Trocar foto</span>
                 </div>
               )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
           </div>
 
-          {/* ── Nome ──────────────────────────────────────── */}
+          {/* Nome */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Nome do Material <span className="text-red-400">*</span>
@@ -250,11 +236,9 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             />
           </div>
 
-          {/* ── SKU ───────────────────────────────────────── */}
+          {/* SKU */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              SKU (Opcional)
-            </label>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">SKU (Opcional)</label>
             <input
               type="text"
               placeholder="Ex: WOB-MAE-02"
@@ -264,7 +248,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             />
           </div>
 
-          {/* ── Categoria ─────────────────────────────────── */}
+          {/* Categoria */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               Categoria <span className="text-red-400">*</span>
@@ -315,12 +299,10 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             </div>
           </div>
 
-          {/* ── Quantidade & Status ────────────────────────── */}
+          {/* Qtd & Status */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Qtd Inicial
-              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Qtd Inicial</label>
               <input
                 type="number"
                 min="0"
@@ -330,9 +312,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Status
-              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
@@ -345,11 +325,9 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             </div>
           </div>
 
-          {/* ── Fornecedor ────────────────────────────────────── */}
+          {/* Fornecedor */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Fornecedor (Opcional)
-            </label>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Fornecedor (Opcional)</label>
             <input
               type="text"
               placeholder="Ex: Distribuidora XYZ"
@@ -359,8 +337,22 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             />
           </div>
 
+          {/* Validade do produto */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3 text-orange-400" />
+              Data de Validade do Produto (Opcional)
+            </label>
+            <input
+              type="date"
+              value={dataValidade}
+              onChange={(e) => setDataValidade(e.target.value)}
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-all"
+            />
+            <p className="text-[10px] text-slate-400">Sistema avisará 2 meses antes do vencimento.</p>
+          </div>
 
-          {/* ── Endereço (Localização via FK) ────────────────────── */}
+          {/* Localização */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1">
               <MapPin className="h-3 w-3 text-blue-500" />
@@ -396,9 +388,8 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
                   </div>
                   <ul className="max-h-48 overflow-y-auto py-1">
                     <li
-                      onClick={() => { setLocalizacaoId(""); setLocOpen(false); }}
-                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-slate-50 transition-colors ${!localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-500"
-                        }`}
+                      onClick={() => handleLocSelect("")}
+                      className={`px-3 py-2 text-xs cursor-pointer hover:bg-slate-50 transition-colors ${!localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-500"}`}
                     >
                       Sem localização
                     </li>
@@ -408,32 +399,63 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
                         <span className="block text-[10px] mt-0.5">Cadastre em Gestão → Endereço</span>
                       </li>
                     ) : (
-                      filteredLocalizacoes.map((loc) => (
-                        <li
-                          key={loc.id}
-                          onClick={() => { setLocalizacaoId(loc.id); setLocOpen(false); }}
-                          className={`px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${loc.id === localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
-                            }`}
-                        >
-                          <p className="font-medium text-slate-800">{loc.rua}</p>
-                          <div className="flex items-center gap-1 mt-1 flex-wrap">
-                            <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">{loc.predio}</span>
-                            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.andar}</span>
-                            <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.apartamento}</span>
-                          </div>
-                        </li>
-                      ))
+                      filteredLocalizacoes.map((loc) => {
+                        const temProd = (loc._count?.materials ?? 0) > 0;
+                        return (
+                          <li
+                            key={loc.id}
+                            onClick={() => handleLocSelect(loc.id)}
+                            className={`px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 transition-colors ${loc.id === localizacaoId ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-slate-800">{loc.rua}</p>
+                              {temProd && (
+                                <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+                                  {loc._count!.materials} prod.
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 mt-1 flex-wrap">
+                              <span className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">{loc.predio}</span>
+                              <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.andar}</span>
+                              <span className="inline-flex items-center rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">{loc.apartamento}</span>
+                            </div>
+                          </li>
+                        );
+                      })
                     )}
                   </ul>
                 </div>
               )}
             </div>
+
+            {/* Aviso de múltiplos produtos no endereço */}
+            {locTemProduto && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    <strong>Atenção:</strong> Este endereço já possui{" "}
+                    <strong>{selectedLoc?._count?.materials} produto(s)</strong>. Tem certeza que deseja
+                    adicionar outro produto neste endereço?
+                  </p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmMultiplos}
+                    onChange={(e) => setConfirmMultiplos(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-amber-300 accent-amber-600"
+                  />
+                  <span className="text-xs font-semibold text-amber-700">Sim, confirmo o endereço compartilhado</span>
+                </label>
+              </div>
+            )}
           </div>
-          {/* ── Nome da Ação ───────────────────────────────── */}
+
+          {/* Nome da Ação */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Nome da Ação (Opcional)
-            </label>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Nome da Ação (Opcional)</label>
             <input
               type="text"
               placeholder="Ex: Promoção de Verão"
@@ -443,12 +465,10 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             />
           </div>
 
-          {/* ── Período da Ação ───────────────────────────── */}
+          {/* Período da Ação */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Início da Ação
-              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Início da Ação</label>
               <input
                 type="date"
                 value={periodoAcaoInicio}
@@ -457,9 +477,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Fim da Ação
-              </label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Fim da Ação</label>
               <input
                 type="date"
                 value={periodoAcaoFim}
@@ -469,7 +487,7 @@ export function MaterialModal({ isOpen, onClose, onSuccess }: MaterialModalProps
             </div>
           </div>
 
-          {/* ── Botões ─────────────────────────────────────── */}
+          {/* Botões */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
             <Button
               type="button"

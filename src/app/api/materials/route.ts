@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         localizacao: true,
       },
       orderBy: {
-        createdAt: "desc",
+        entryDate: "asc",
       },
     });
 
@@ -24,6 +24,20 @@ export async function GET(request: NextRequest) {
       const entryDateObj = new Date(m.entryDate);
       const diffTime = Math.abs(now.getTime() - entryDateObj.getTime());
       const daysInStock = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Dias restantes da ação
+      let diasRestantesAcao: number | null = null;
+      if (m.periodoAcaoFim) {
+        const diff = m.periodoAcaoFim.getTime() - now.getTime();
+        diasRestantesAcao = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      }
+
+      // Dias até a validade do produto
+      let diasParaVencer: number | null = null;
+      if (m.dataValidade) {
+        const diff = m.dataValidade.getTime() - now.getTime();
+        diasParaVencer = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      }
 
       return {
         id: m.id,
@@ -40,6 +54,9 @@ export async function GET(request: NextRequest) {
         nomeAcao: m.nomeAcao || null,
         periodoAcaoInicio: m.periodoAcaoInicio ? m.periodoAcaoInicio.toISOString().split("T")[0] : null,
         periodoAcaoFim: m.periodoAcaoFim ? m.periodoAcaoFim.toISOString().split("T")[0] : null,
+        diasRestantesAcao,
+        dataValidade: m.dataValidade ? m.dataValidade.toISOString().split("T")[0] : null,
+        diasParaVencer,
         localizacaoId: m.localizacaoId || null,
         localizacao: m.localizacao
           ? {
@@ -67,7 +84,7 @@ export async function POST(request: Request) {
     const {
       name, sku, categoryName, quantity, entryDate,
       status, fornecedor, nomeAcao, periodoAcaoInicio,
-      periodoAcaoFim, photoUrl, localizacaoId,
+      periodoAcaoFim, dataValidade, photoUrl, localizacaoId,
     } = body;
 
     if (!name || !categoryName) {
@@ -98,6 +115,7 @@ export async function POST(request: Request) {
         nomeAcao: nomeAcao || null,
         periodoAcaoInicio: periodoAcaoInicio ? new Date(periodoAcaoInicio) : null,
         periodoAcaoFim: periodoAcaoFim ? new Date(periodoAcaoFim) : null,
+        dataValidade: dataValidade ? new Date(dataValidade) : null,
         photoUrl: photoUrl || null,
         localizacaoId: localizacaoId || null,
       },
