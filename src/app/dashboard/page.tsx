@@ -14,11 +14,11 @@ import {
   FileSignature,
   Plus,
   Download,
-  Bell,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MovementModal } from "@/components/dashboard/MovementModal";
 import { MaterialModal } from "@/components/dashboard/MaterialModal";
+import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,19 +70,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* Sino de notificações */}
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100"
-                id="btn-notifications"
-              >
-                <Bell className="h-4.5 w-4.5" style={{ width: "1.125rem", height: "1.125rem" }} />
-              </Button>
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                {pendingSignatures}
-              </span>
-            </div>
+            <NotificationsPanel />
 
             <Button
               variant="outline"
