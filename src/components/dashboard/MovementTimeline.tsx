@@ -2,9 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { mockMovements, MockMovement } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, Activity } from "lucide-react";
 
 function getInitials(name: string) {
   return name
@@ -50,7 +49,7 @@ export function MovementTimeline({ refreshTrigger = 0 }: { refreshTrigger?: numb
         docStatus: m.documentStatus === "Assinado" ? "ASSINADO" as const : "AGUARDANDO" as const,
         user: m.user
       }))
-    : mockMovements.slice(0, 5);
+    : [];
 
   return (
     <Card className="border-0 rounded-2xl shadow-sm bg-white">
@@ -69,6 +68,12 @@ export function MovementTimeline({ refreshTrigger = 0 }: { refreshTrigger?: numb
       </CardHeader>
 
       <CardContent className="px-5 pb-5">
+        {list.length === 0 && !loading ? (
+          <div className="flex flex-col items-center justify-center h-[200px] gap-2 text-slate-400">
+            <Activity className="h-8 w-8 opacity-30" />
+            <p className="text-xs">Nenhuma movimentação recente registrada</p>
+          </div>
+        ) : (
         <div className="relative">
           {/* Linha vertical da timeline */}
           <div className="absolute left-[18px] top-2 bottom-2 w-px bg-slate-100" />
@@ -135,6 +140,7 @@ export function MovementTimeline({ refreshTrigger = 0 }: { refreshTrigger?: numb
             ))}
           </div>
         </div>
+        )}
 
         {/* Ver todos */}
         <button className="mt-4 w-full text-xs font-semibold text-blue-600 hover:text-blue-700 py-2 rounded-xl hover:bg-blue-50 transition-colors">

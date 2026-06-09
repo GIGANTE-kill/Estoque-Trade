@@ -11,8 +11,7 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockFlowData } from "@/lib/mock-data";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, BarChart2 } from "lucide-react";
 
 const CustomTooltip = ({
   active,
@@ -50,7 +49,7 @@ interface FlowChartProps {
 }
 
 export function FlowChart({ chartData }: FlowChartProps) {
-  const data = chartData && chartData.length > 0 ? chartData : mockFlowData.map(d => ({ name: d.day.toUpperCase(), entradas: d.entradas, saidas: d.saidas }));
+  const data = chartData && chartData.length > 0 ? chartData : [];
   
   const totalEntradas = data.reduce((s, d) => s + d.entradas, 0);
   const totalSaidas = data.reduce((s, d) => s + d.saidas, 0);
@@ -95,58 +94,65 @@ export function FlowChart({ chartData }: FlowChartProps) {
       </CardHeader>
 
       <CardContent className="px-2 pb-4">
-        <ResponsiveContainer width="100%" height={200}>
-          <AreaChart
-            data={data}
-            margin={{ top: 8, right: 12, left: -20, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorSaidas" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.15} />
-                <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#f1f5f9"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: "#94a3b8" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 11, fill: "#94a3b8" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="entradas"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              fill="url(#colorEntradas)"
-              dot={{ fill: "#3b82f6", r: 3, strokeWidth: 0 }}
-              activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="saidas"
-              stroke="#a78bfa"
-              strokeWidth={2}
-              fill="url(#colorSaidas)"
-              dot={{ fill: "#a78bfa", r: 3, strokeWidth: 0 }}
-              activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {data.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[200px] gap-2 text-slate-400">
+            <BarChart2 className="h-8 w-8 opacity-30" />
+            <p className="text-xs">Nenhuma movimentação nos últimos 7 dias</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart
+              data={data}
+              margin={{ top: 8, right: 12, left: -20, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="colorSaidas" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f1f5f9"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="entradas"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fill="url(#colorEntradas)"
+                dot={{ fill: "#3b82f6", r: 3, strokeWidth: 0 }}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
+              />
+              <Area
+                type="monotone"
+                dataKey="saidas"
+                stroke="#a78bfa"
+                strokeWidth={2}
+                fill="url(#colorSaidas)"
+                dot={{ fill: "#a78bfa", r: 3, strokeWidth: 0 }}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: "#fff" }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );
